@@ -257,3 +257,24 @@ function _GIC_Variable_Selection_generic(X, Y, Init_Columns, Calculate_GIC, kcap
     end
     return (GIC_list, GIC_coeff, GIC_time)
 end
+
+# Entry point for the R wrapper. The criteria are passed by name: a Julia
+# function handed to R and back arrives as an RCall.RFunction wrapper, which
+# the search cannot recognise, so it would fall back to the slow generic path
+# and call back into R for every candidate. The selected sets come back packed
+# into one integer vector plus their lengths, which converts to R in one step.
+_julia_function(name::AbstractString) = getfield(Main, Symbol(name))
+
+function _GIC_Variable_Selection_flat(X, Y, Init_Columns, Calculate_GIC::AbstractString,
+                                      Calculate_GIC_short::AbstractString, k; kwargs...)
+    GIC_list, GIC_coeff, GIC_time = GIC_Variable_Selection(
+        X, Y, Init_Columns, _julia_function(Calculate_GIC),
+        _julia_function(Calculate_GIC_short), k; kwargs...)
+    lens = Int[length(s) for s in GIC_coeff]
+    flat = Vector{Int}(undef, sum(lens))
+    i = 0
+    for s in GIC_coeff, j in s
+        flat[i += 1] = j
+    end
+    return (GIC_list, flat, lens, GIC_time)
+end

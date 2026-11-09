@@ -143,7 +143,13 @@ Each criterion is available as `Calculate_<name>` (for example
 The examples below compare three criteria on the same data. In increasing
 order of penalty per variable, they are AIC ($c_n = 2$), BIC ($\log n$) and
 GIC6 ($\log n \log P$), where $P$ is the number of candidate
-predictors.
+predictors. Each example also runs the Boltzmann search
+(`GIC_Variable_Selection_Boltzmann()`) with GIC6, which accepts a move that
+lowers the criterion with a small probability, so it can leave a local
+optimum. For reference, they also fit the lasso and the adaptive lasso with
+[GLMNet.jl](https://github.com/JuliaStats/GLMNet.jl), tuned by 10-fold
+cross-validation (the $\lambda$ with the smallest cross-validated loss); the
+adaptive lasso uses weights from a ridge pilot fit.
 
 The search is run by
 
@@ -157,52 +163,120 @@ the columns `init_cols` and visits every column in random
 order `Nsim` times, adding it if it is absent and removing it if it is
 present, whenever this increases the criterion. Models stay below `k`
 variables. It returns a tuple with the criterion value, the selected columns
-and the elapsed time after each step.
+and the elapsed time after each step. `GIC_Variable_Selection_Boltzmann()`
+takes the same arguments, with `k` and `Nsim` as keywords.
 
 Each table reports the size, false positives and false negatives of the
-selected model.
+selected model, and the wall-clock time of each method in seconds (Apple M1
+Pro laptop, Julia 1.11, after Julia has compiled). The right-hand panel of
+each figure shows the same times.
 
 <!-- Helper functions used in the examples (hidden; run by docs/readme_figures.jl)
 
 ```julia
 using Random, LinearAlgebra
+using GLMNet, Distributions          # lasso and adaptive lasso
 
 criteria = (AIC  = (Calculate_AIC, Calculate_AIC_short),
             BIC  = (Calculate_BIC, Calculate_BIC_short),
             GIC6 = (Calculate_GIC6, Calculate_GIC6_short))
 sample_sizes = (n1000 = 1000, n2000 = 2000)
 
-# Run the search once per criterion, on the first n observations for each n
-compare_criteria(X, Y, init, k; Nsim) = map(sample_sizes) do n
-    Yn = Y isa AbstractMatrix ? Y[1:n, :] : Y[1:n]
-    map(crit -> GIC_Variable_Selection(X[1:n, :], Yn, init, crit..., k; Nsim = Nsim), criteria)
+first_rows(Y, n) = Y isa AbstractMatrix ? Y[1:n, :] : Y[1:n]
+
+# Call `f()` and attach its wall-clock time in seconds
+function timed(f)
+    seconds = @elapsed fit = f()
+    merge(fit, (seconds = seconds,))
 end
 
-last_model(fit) = sort(fit[2][end])
+# Criterion value and selected columns after each step of a search
+search_path(fit) = (values = fit[1], models = fit[2])
 
-# Size, false positives and false negatives of each final model
+# Coefficients at the lambda with the smallest cross-validated loss, one
+# column per response
+function lasso_coef(cv)
+    b = cv.path.betas
+    i = argmin(cv.meanloss)
+    ndims(b) == 3 ? b[:, :, i] : reshape(b[1:size(b, 1), i], :, 1)
+end
+
+# Lasso, or adaptive lasso with ridge pilot weights, tuned by 10-fold
+# cross-validation. A predictor is selected if any response (or category) has
+# a nonzero coefficient. The multinomial lasso is ungrouped (GLMNet.jl's
+# grouped fit is about 20 times slower here), and its lambda path stops at
+# 1% of the largest lambda: further down, glmnet can fail to converge.
+# docs/readme_figures.jl loads docs/glmnet_patch.jl first, which fixes how
+# GLMNet.jl 0.7.4 returns multi-response and multinomial coefficients.
+function fit_lasso(X, y, family; adaptive = false)
+    kw = (folds = [mod1(i, 10) for i in 1:size(X, 1)],)
+    family isa Multinomial && (kw = (kw..., lambda_min_ratio = 0.01))
+    if adaptive
+        ridge = glmnetcv(X, y, family; alpha = 0.0, kw...)
+        kw = (kw..., penalty_factor = 1 ./ vec(sqrt.(sum(abs2, lasso_coef(ridge); dims = 2))))
+    end
+    cv = glmnetcv(X, y, family; kw...)
+    (selected = findall(vec(any(lasso_coef(cv) .!= 0; dims = 2))),)
+end
+
+# For each n, run the search once per criterion on the first n observations,
+# then the Boltzmann search with GIC6, and the lasso and adaptive lasso on the
+# original response `lasso_y`
+compare_criteria(X, Y, init, k; Nsim, lasso_y = Y, lasso_family = Normal()) =
+    map(sample_sizes) do n
+        Xn, Yn, yn = X[1:n, :], first_rows(Y, n), first_rows(lasso_y, n)
+        gic = map(criteria) do crit
+            timed(() -> search_path(GIC_Variable_Selection(Xn, Yn, init, crit..., k; Nsim = Nsim)))
+        end
+        merge(gic, (
+            Boltzmann = timed(() -> search_path(GIC_Variable_Selection_Boltzmann(
+                Xn, Yn, init, Calculate_GIC6, Calculate_GIC6_short; k = k, Nsim = Nsim))),
+            Lasso    = timed(() -> fit_lasso(Xn, yn, lasso_family)),
+            AdaLasso = timed(() -> fit_lasso(Xn, yn, lasso_family; adaptive = true))))
+    end
+
+last_model(fit) = sort(fit.models[end])
+
+# Size, false positives, false negatives and run time of each final model
 struct SelectionTable
     rows::Vector{String}
     stats::Matrix{Int}
+    seconds::Vector{Float64}
 end
 
 function selection_table(fits, truth)
-    rows, stats = String[], Vector{Int}[]
-    for (n, by_crit) in pairs(fits), (crit, fit) in pairs(by_crit)
-        s = last_model(fit)
-        push!(rows, "$n $crit")
+    rows, stats, seconds = String[], Vector{Int}[], Float64[]
+    for (n, by_method) in pairs(fits), (method, fit) in pairs(by_method)
+        s = haskey(fit, :selected) ? fit.selected : last_model(fit)
+        push!(rows, "$n $method")
         push!(stats, [length(s), length(setdiff(s, truth)), length(setdiff(truth, s))])
+        push!(seconds, fit.seconds)
     end
-    SelectionTable(rows, permutedims(reduce(hcat, stats)))
+    SelectionTable(rows, permutedims(reduce(hcat, stats)), seconds)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", t::SelectionTable)
     w = maximum(length, t.rows)
-    print(io, " "^w, "  size false_pos false_neg")
-    for (r, s) in zip(t.rows, eachrow(t.stats))
-        print(io, "\n", rpad(r, w), lpad(s[1], 6), lpad(s[2], 10), lpad(s[3], 10))
+    print(io, " "^w, "  size false_pos false_neg seconds")
+    for (r, s, sec) in zip(t.rows, eachrow(t.stats), t.seconds)
+        print(io, "\n", rpad(r, w), lpad(s[1], 6), lpad(s[2], 10), lpad(s[3], 10),
+              lpad(string(round(sec, digits = 2)), 8))
     end
 end
+
+# Compile everything once, so the run times exclude Julia's compilation
+function warm_up()
+    Xw = randn(2000, 20)
+    yw = Xw[:, 1] + randn(2000)
+    compare_criteria(Xw, yw, 1:5, 20; Nsim = 1)
+    compare_criteria(Xw, [yw yw], 1:5, 20; Nsim = 1, lasso_family = MvNormal())
+    counts = rand(0:10, 2000)
+    for (y, family) in ((counts, Poisson()), ([10 .- counts counts], Binomial()),
+                        (Float64[mod1(i, 3) == j for i in 1:2000, j in 1:3], Multinomial()))
+        fit_lasso(Xw, y, family); fit_lasso(Xw, y, family; adaptive = true)
+    end
+end
+warm_up();
 ```
 
 Each figure shows, for every criterion, its value and the number of selected
@@ -210,7 +284,9 @@ variables after each search step: solid lines for $n = 1000$ and dotted lines
 for $n = 2000$. Light grey vertical lines mark a new pass over the
 predictors, and the dashed line marks the true model size. Criteria with
 larger penalties take lower values, so compare the shapes of the curves, not
-their heights. The script
+their heights. The lasso and adaptive lasso have no search path; squares at
+the right edge of the middle panel mark their model sizes (light: $n = 1000$,
+dark: $n = 2000$). The script
 [`docs/readme_figures.jl`](docs/readme_figures.jl) runs the code in this
 section and redraws the figures.
 -->
@@ -252,16 +328,22 @@ Y = LP_to_Y(X, beta, "Normal"; std = sqrt(sum(abs2, beta) / 0.71))
 
 fits = compare_criteria(X, Y, 1:p, p; Nsim = 5)
 selection_table(fits, true_cols)
-#>             size false_pos false_neg
-#> n1000 AIC    119       114         0
-#> n1000 BIC     10         5         0
-#> n1000 GIC6     5         0         0
-#> n2000 AIC     90        85         0
-#> n2000 BIC     10         5         0
-#> n2000 GIC6     5         0         0
+#>                  size false_pos false_neg seconds
+#> n1000 AIC         119       114         0    0.27
+#> n1000 BIC          10         5         0    0.26
+#> n1000 GIC6          5         0         0    0.15
+#> n1000 Boltzmann     5         0         0    0.15
+#> n1000 Lasso        11         6         0    2.09
+#> n1000 AdaLasso     44        39         0    4.82
+#> n2000 AIC          97        92         0     0.4
+#> n2000 BIC          10         5         0    0.25
+#> n2000 GIC6          5         0         0    0.32
+#> n2000 Boltzmann    17        12         0    0.24
+#> n2000 Lasso        23        18         0    2.86
+#> n2000 AdaLasso     39        34         0    7.88
 ```
 
-![Criteria and model size along the search, linear model with p = 500](docs/figures/README-linear.png)
+![Criteria, model size and run time, linear model with p = 500](docs/figures/README-linear-runtime.png)
 
 
 ### Multivariate normal
@@ -281,18 +363,24 @@ end
 Y_multi = LP_to_Y(X, B, "MultivariateNormal"; cov_matrix = Matrix(1.0I, m, m))
 true_union = sort(unique(reduce(vcat, true_by_response)))
 
-fits = compare_criteria(X, Y_multi, 1:p, p; Nsim = 5)
+fits = compare_criteria(X, Y_multi, 1:p, p; Nsim = 5, lasso_family = MvNormal())
 selection_table(fits, true_union)
-#>             size false_pos false_neg
-#> n1000 AIC    110        85         0
-#> n1000 BIC     20         0         5
-#> n1000 GIC6    20         0         5
-#> n2000 AIC     81        56         0
-#> n2000 BIC     22         0         3
-#> n2000 GIC6    20         0         5
+#>                  size false_pos false_neg seconds
+#> n1000 AIC          93        69         1    0.41
+#> n1000 BIC          20         0         5    0.17
+#> n1000 GIC6         20         0         5    0.16
+#> n1000 Boltzmann   152       130         3    0.39
+#> n1000 Lasso       132       107         0    5.47
+#> n1000 AdaLasso     24         2         3   12.59
+#> n2000 AIC          76        51         0    0.32
+#> n2000 BIC          22         0         3    0.37
+#> n2000 GIC6         20         0         5    0.23
+#> n2000 Boltzmann   193       173         5    0.64
+#> n2000 Lasso       131       106         0   10.14
+#> n2000 AdaLasso     54        30         1   24.15
 ```
 
-![Criteria and model size along the search, multivariate normal response](docs/figures/README-multivariate.png)
+![Criteria, model size and run time, multivariate normal response](docs/figures/README-multivariate-runtime.png)
 
 
 ### Generalized linear models
@@ -308,23 +396,32 @@ Random.seed!(2)
 true_cols = [3, 17, 42, 88, 150]
 beta = zeros(p); beta[true_cols] = [1, -1, 0.8, -0.8, 0.6]
 
-compare_glm(Y, family; kw...) =
-    compare_criteria(X, Y_to_LP(Y, family; kw...), 1:10, 50; Nsim = 3)
+# `y` is the response, `lasso_y` and `lasso_family` its form for GLMNet, and
+# `family` and `kw` the family arguments for Y_to_LP()
+compare_glm(y, lasso_y, lasso_family, family; kw...) =
+    compare_criteria(X, Y_to_LP(y, family; kw...), 1:10, 50; Nsim = 3,
+                     lasso_y = lasso_y, lasso_family = lasso_family)
 ```
 
 #### Poisson regression
 
 ```julia
 y_pois = LP_to_Y(X, beta, "Poisson")
-fits = compare_glm(y_pois, "Poisson")
+fits = compare_glm(y_pois, y_pois, Poisson(), "Poisson")
 selection_table(fits, true_cols)
-#>             size false_pos false_neg
-#> n1000 AIC     49        45         1
-#> n1000 BIC      7         2         0
-#> n1000 GIC6     5         0         0
-#> n2000 AIC     48        43         0
-#> n2000 BIC      6         1         0
-#> n2000 GIC6     5         0         0
+#>                  size false_pos false_neg seconds
+#> n1000 AIC          49        45         1    0.01
+#> n1000 BIC           7         2         0     0.0
+#> n1000 GIC6          5         0         0     0.0
+#> n1000 Boltzmann    49        48         4    0.02
+#> n1000 Lasso        24        19         0    5.73
+#> n1000 AdaLasso      5         0         0    7.04
+#> n2000 AIC          49        44         0    0.15
+#> n2000 BIC           6         1         0    0.01
+#> n2000 GIC6          5         0         0    0.01
+#> n2000 Boltzmann    49        48         4    0.02
+#> n2000 Lasso        28        23         0    4.72
+#> n2000 AdaLasso      5         0         0   13.55
 
 # Coefficients of the GIC6 model for n = 2000, intercept first
 round.(Beta_estimate(y_pois, X[:, last_model(fits.n2000.GIC6)]; family = "Poisson"), digits = 2)
@@ -337,24 +434,30 @@ round.(Beta_estimate(y_pois, X[:, last_model(fits.n2000.GIC6)]; family = "Poisso
 #>   0.59
 ```
 
-![Criteria and model size along the search, Poisson response](docs/figures/README-poisson.png)
+![Criteria, model size and run time, Poisson response](docs/figures/README-poisson-runtime.png)
 
 #### Binomial counts (10 trials)
 
 ```julia
 y_binom = LP_to_Y(X, beta, "Binomial"; n_trials = 10)
-fits = compare_glm(y_binom, "Binomial"; n_trials = 10)
+fits = compare_glm(y_binom, [10 .- y_binom y_binom], Binomial(), "Binomial"; n_trials = 10)
 selection_table(fits, true_cols)
-#>             size false_pos false_neg
-#> n1000 AIC     49        46         2
-#> n1000 BIC      7         2         0
-#> n1000 GIC6     5         0         0
-#> n2000 AIC     49        45         1
-#> n2000 BIC      7         2         0
-#> n2000 GIC6     5         0         0
+#>                  size false_pos false_neg seconds
+#> n1000 AIC          49        44         0    0.01
+#> n1000 BIC          10         5         0    0.01
+#> n1000 GIC6          5         0         0     0.0
+#> n1000 Boltzmann     5         0         0    0.01
+#> n1000 Lasso        31        26         0    3.36
+#> n1000 AdaLasso     69        64         0     7.2
+#> n2000 AIC          49        45         1    0.11
+#> n2000 BIC          10         5         0    0.01
+#> n2000 GIC6          5         0         0    0.01
+#> n2000 Boltzmann     5         0         0    0.01
+#> n2000 Lasso        27        22         0    4.26
+#> n2000 AdaLasso     34        29         0   13.15
 ```
 
-![Criteria and model size along the search, binomial response](docs/figures/README-binomial.png)
+![Criteria, model size and run time, binomial response](docs/figures/README-binomial-runtime.png)
 
 #### Multinomial (three categories)
 
@@ -365,18 +468,25 @@ B_mn = zeros(p, 2)
 B_mn[true_cols, 1] .= 1.5
 B_mn[true_cols, 2] = [-1.5, 1.5, -1.5, 1.5, -1.5]
 y_mn = LP_to_Y(X, B_mn, "Multinomial"; n_categories = 3)
-fits = compare_glm(y_mn, "Multinomial"; n_categories = 3)
+onehot = Float64[y == c for y in y_mn, c in 1:3]
+fits = compare_glm(y_mn, onehot, Multinomial(), "Multinomial"; n_categories = 3)
 selection_table(fits, true_cols)
-#>             size false_pos false_neg
-#> n1000 AIC     49        47         3
-#> n1000 BIC      6         1         0
-#> n1000 GIC6     5         0         0
-#> n2000 AIC     49        45         1
-#> n2000 BIC      8         3         0
-#> n2000 GIC6     5         0         0
+#>                  size false_pos false_neg seconds
+#> n1000 AIC          49        45         1    0.02
+#> n1000 BIC           6         1         0    0.01
+#> n1000 GIC6          5         0         0     0.0
+#> n1000 Boltzmann    18        13         0    0.01
+#> n1000 Lasso        58        53         0    14.8
+#> n1000 AdaLasso     15        10         0   12.71
+#> n2000 AIC          49        45         1    0.02
+#> n2000 BIC           8         3         0    0.01
+#> n2000 GIC6          5         0         0    0.01
+#> n2000 Boltzmann    42        37         0    0.15
+#> n2000 Lasso        79        74         0   28.99
+#> n2000 AdaLasso     15        10         0   25.18
 ```
 
-![Criteria and model size along the search, multinomial response](docs/figures/README-multinomial.png)
+![Criteria, model size and run time, multinomial response](docs/figures/README-multinomial-runtime.png)
 
 ## License
 

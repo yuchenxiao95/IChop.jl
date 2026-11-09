@@ -95,3 +95,10 @@ function GIC_Variable_Selection_Boltzmann(
     end
     return (GIC_list, GIC_coeff)
 end
+
+# Entry point for the R wrapper; the criteria are passed by name (see
+# _GIC_Variable_Selection_flat in GIC_Model_Selection.jl).
+_GIC_Variable_Selection_Boltzmann_byname(X, Y, Init_Columns, Calculate_GIC::AbstractString,
+                                         Calculate_GIC_short::AbstractString; kwargs...) =
+    GIC_Variable_Selection_Boltzmann(X, Y, Init_Columns, _julia_function(Calculate_GIC),
+                                     _julia_function(Calculate_GIC_short); kwargs...)
