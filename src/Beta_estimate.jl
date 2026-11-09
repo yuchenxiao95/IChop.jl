@@ -40,7 +40,8 @@ function Beta_estimate(
     if isa(Y, AbstractMatrix) && size(Y,2)==1; Y = vec(Y) end
 
     family = family === :auto ? begin
-        if isa(Y, AbstractMatrix)         :MultivariateNormal
+        if isa(Y, AbstractMatrix)
+            :MultivariateNormal
         elseif eltype(Y)<:Bool || all(y->y in (0,1), Y)
             :Bernoulli
         elseif eltype(Y)<:Integer && all(Y .>= 0)

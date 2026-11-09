@@ -128,7 +128,7 @@ function Calculate_AttIC_short(Y::Union{AbstractVector, AbstractMatrix}, X::Abst
     return AttIC
 end
 
-<<<<<<< HEAD
+# SIC Functions
 function Calculate_SIC(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatrix, Huber::Bool = false)
     T, K = size(X, 1), size(X, 2)
     XX = X' * X
@@ -142,24 +142,8 @@ function Calculate_SIC(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatr
         Hat_matrix = X * Inverse * X'
     end
 
-=======
-
-# SIC Functions
-function Calculate_SIC(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatrix)
-
-    # Get dimensions
-    T, K = size(X, 1), size(X, 2)
-
-    # Compute inverse and hat matrix
-    Inverse = inv(X' * X)
-    Hat_matrix = X * Inverse * X'
-
-    # Compute residuals and sample variance
->>>>>>> f39eccd (some changes)
     residuals = Y - Hat_matrix * Y
-    sample_variance = (residuals' * residuals) / (T-K)
 
-<<<<<<< HEAD
     if Huber
         estimated_var = (residuals' * residuals) / (T - K)
         sample_variance = huber_loss(residuals, 0.8 * sqrt(estimated_var)) / (T - K)
@@ -167,18 +151,10 @@ function Calculate_SIC(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatr
         sample_variance = (residuals' * residuals) / (T - K)
     end
 
-=======
-    # Compute SIC
->>>>>>> f39eccd (some changes)
     SIC = (Y' * Hat_matrix * Y) / T - (K * sample_variance) / sqrt(T)
 
     return (SIC, Inverse)
 end
-
-<<<<<<< HEAD
-=======
-function Calculate_SIC_short(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatrix, Inverse::AbstractMatrix)
->>>>>>> f39eccd (some changes)
 
 function Calculate_SIC_short(
         Y::Union{AbstractVector, AbstractMatrix},
@@ -190,7 +166,6 @@ function Calculate_SIC_short(
 
     Hat_matrix = X * Inverse * X'
     residuals = Y - Hat_matrix * Y
-<<<<<<< HEAD
 
     if Huber
         estimated_var = (residuals' * residuals) / (T - K)
@@ -198,9 +173,6 @@ function Calculate_SIC_short(
     else
         sample_variance = (residuals' * residuals) / (T - K)
     end
-=======
-    sample_variance = (residuals' * residuals) /(T-K)
->>>>>>> f39eccd (some changes)
 
     SIC = (Y' * Hat_matrix * Y) / T - (K * sample_variance) / sqrt(T)
     return SIC
@@ -250,7 +222,7 @@ end
 # end
 
 # BIC Functions
-function Calculate_BIC(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatrix)
+function Calculate_BIC(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatrix, Huber::Bool = false)
 
     # Get dimensions
     T, K = size(X, 1), size(X, 2)
@@ -268,7 +240,6 @@ function Calculate_BIC(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatr
 
     # Compute residuals and sample variance
     residuals = Y - Hat_matrix * Y
-<<<<<<< HEAD
     if Huber
         estimated_var = (residuals' * residuals) / (T-K)
         # Note: huber_loss function is assumed to be defined elsewhere and available
@@ -276,9 +247,6 @@ function Calculate_BIC(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatr
     else
         sample_variance = (residuals' * residuals) / (T-K)
     end
-=======
-    sample_variance = (residuals' * residuals) / (T-K)
->>>>>>> f39eccd (some changes)
 
     # Compute BIC
     # Note: Y' * Hat_matrix * Y results in a 1x1 matrix, so [1] extracts the scalar.
@@ -287,7 +255,6 @@ function Calculate_BIC(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatr
     return (BIC, Inverse)
 end
 
-<<<<<<< HEAD
 # function Calculate_BIC(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatrix, Huber::Bool = false)
 
 #     # Get dimensions
@@ -313,9 +280,6 @@ end
 # end
 
 function Calculate_BIC_short(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatrix, Inverse::AbstractMatrix, Huber::Bool = false)
-=======
-function Calculate_BIC_short(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatrix, Inverse::AbstractMatrix)
->>>>>>> f39eccd (some changes)
 
 
     # Get dimensions
@@ -326,7 +290,13 @@ function Calculate_BIC_short(Y::Union{AbstractVector, AbstractMatrix}, X::Abstra
 
     # Compute residuals and sample variance
     residuals = Y - Hat_matrix * Y
-    sample_variance = (residuals' * residuals) / (T-K)
+
+    if Huber
+        estimated_var = (residuals' * residuals) / (T - K)
+        sample_variance = huber_loss(residuals, 0.8 * sqrt(estimated_var)) / (T - K)
+    else
+        sample_variance = (residuals' * residuals) / (T - K)
+    end
 
     # Compute BIC
     BIC = (Y' * Hat_matrix * Y) / T - (K * sample_variance) / T * log(T)
@@ -596,44 +566,6 @@ function Calculate_GIC6_short(Y::Union{AbstractVector, AbstractMatrix}, X::Abstr
 
     # Compute GIC5
     GIC6 = (Y' * Hat_matrix * Y) / T - (K * sample_variance) / T * log(T) * log(K)
-
-    return GIC6
-end
-
-
-
-# GIC6 Functions
-function Calculate_EBIC(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatrix, P::Integer)
-
-    # Get dimensions
-    T, K = size(X, 1), size(X, 2)
-
-    # Compute inverse and hat matrix
-    Inverse = inv(X'*X)
-    Hat_matrix = X*Inverse*X'
-
-    # Compute residuals and sample variance
-    sample_variance = ((Y - Hat_matrix*Y)' * (Y - Hat_matrix*Y))/ (T-K)
-
-    GIC6 = (Y'*Hat_matrix*Y)/ T - (K*sample_variance)/T * (log(T) + 2 * log(binomial(big(P), K))) 
-
-    return (GIC6, Inverse)
-end
-
-function Calculate_EBIC_short(Y::Union{AbstractVector, AbstractMatrix}, X::AbstractMatrix, Inverse::AbstractMatrix)
-
-    # Get dimensions
-    T, K = size(X, 1), size(X, 2)
-
-    # Compute hat matrix
-    Hat_matrix = X * Inverse * X'
-
-    # Compute residuals and sample variance
-    residuals = Y - Hat_matrix * Y
-    sample_variance = (residuals' * residuals) / (T-K)
-
-    # Compute GIC5
-    GIC6 = (Y' * Hat_matrix * Y) / T - (K*sample_variance)/T * (log(T) + 2 * log(binomial(big(P), K))) 
 
     return GIC6
 end
