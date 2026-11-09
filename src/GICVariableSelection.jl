@@ -23,6 +23,7 @@ using StatsModels
 using GLM
 # Include your files
 include("GIC_Calculation.jl")
+include("GIC_Fast.jl")
 include("GIC_Model_Selection.jl")
 include("GIC_Model_Selection_Boltzmann.jl")
 include("Beta_estimate.jl")

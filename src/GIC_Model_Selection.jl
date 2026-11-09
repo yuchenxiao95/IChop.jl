@@ -8,7 +8,8 @@ function GIC_Variable_Selection(
     Calculate_GIC, 
     Calculate_GIC_short;
     Huber::Bool = false,
-    Nsim::Int64 = 2
+    Nsim::Int64 = 2,
+    fast_off::Bool = false   # true: always use the original (slow) loop
 )
     # --- Input Validation ---
     m, n = size(X)
@@ -18,6 +19,13 @@ function GIC_Variable_Selection(
     # --- Initialization ---
     shuffled_sets = [shuffle(1:n) for _ in 1:Nsim]   # List of Nsim shuffled vectors
     repeated_list = vcat(shuffled_sets...) 
+
+    # Fast path (GIC_Fast.jl): rank-one updates instead of refitting every
+    # candidate. Used for the built-in criteria without Huber; same search.
+    crit = _criterion_symbol(Calculate_GIC)
+    if !Huber && crit !== nothing && !fast_off
+        return _GIC_Variable_Selection_fast(X, Y, Init_Columns, crit, repeated_list)
+    end
     # sets = collect(1:n)  # All feature indices
     # repeated_list = repeat(sets, Nsim)  # Feature sequence for iteration
 
