@@ -1,124 +1,97 @@
-using Random 
+##############################################################################
+#  GIC_Model_Selection_Boltzmann.jl
+#
+#  Stochastic (Boltzmann / simulated-annealing style) version of the GIC
+#  coordinate search. Requires penalty_selection.jl and GIC_Model_Selection.jl
+#  (for the incremental least-squares engine) to be loaded first.
+##############################################################################
+using Random
+using LinearAlgebra
 
+_logistic(x::Real) = x >= 0 ? 1 / (1 + exp(-x)) : (ex = exp(x); ex / (1 + ex))
+
+"""
+    GIC_Variable_Selection_Boltzmann(X, Y, Init_Columns, Calculate_GIC, Calculate_GIC_short;
+                                     T = 0.2, Nsim = 2, k = typemax(Int), gamma = 0.6)
+
+Like `GIC_Variable_Selection`, but a proposed add/remove move is accepted with
+probability `logistic((GIC_new - GIC_current) / T)` instead of only when the
+criterion improves. Small `T` gives an almost greedy search; large `T` explores
+more. The columns are shuffled once and visited `Nsim` times. Moves that would
+give a model with `k` or more columns are skipped (no cap by default), and
+models never exceed n - 1 columns.
+
+Returns `(GIC_list, GIC_coeff)` as `GIC_Variable_Selection` does.
+"""
 function GIC_Variable_Selection_Boltzmann(
-    X::AbstractMatrix, 
+    X::AbstractMatrix,
     Y::Union{AbstractVector, AbstractMatrix},
-    Init_Columns::AbstractVector{Int}, 
-    Calculate_GIC, 
+    Init_Columns::AbstractVector{<:Integer},
+    Calculate_GIC,
     Calculate_GIC_short;
-    T::Float64=0.2,  
-    Nsim::Int64=2
+    T::Real = 0.2,
+    Nsim::Integer = 2,
+    k::Integer = typemax(Int),
+    gamma::Real = 0.6
 )
-    """
-    Perform variable selection using the Generalized Information Criterion (GIC) with a Boltzmann-like 
-    simulated annealing approach. The function efficiently searches through subsets of features 
-    to minimize the GIC while employing probabilistic updates based on the Boltzmann distribution.
+    m, p = size(X)
+    kcap = min(k, m)          # models have at most min(k, n) - 1 variables
+    @assert m == size(Y, 1) "Sample size mismatch between X and Y."
+    T > 0 || error("Temperature T must be positive.")
 
-    ### Arguments:
-    - `X::AbstractMatrix`: An `n x p` matrix of input features, where `n` is the number of samples and `p` is the number of features.
-    - `Y::AbstractVector`: A vector of target values with length `n`, corresponding to the rows of `X`.
-    - `Init_Columns::AbstractVector{Int}`: A vector of initial feature indices that are assumed to have non-zero coefficients.
-    - `Calculate_GIC`: A function that computes the GIC for a given feature subset. It expects the outcome vector `Y` and the feature matrix for the subset.
-    - `Calculate_GIC_short`: A function to calculate the GIC using incremental matrix updates, which avoids recalculating the full inverse each time.
-    - `T::Float64`: The temperature parameter that controls the randomness of updates. The default value is `0.2`, with lower values leading to fewer updates (more deterministic).
-    - `debug::Bool`: A flag to print debugging information for each iteration. The default is `false`.
-    - `Nsim::Int64`: The number of times to repeat the feature subset list in parallel. The default is `2`.
+    visit = repeat(shuffle(collect(1:p)), Nsim)
+    accept(new, old) = rand() < _logistic((tr(new) - tr(old)) / T)
 
-    ### Returns:
-    - `GIC_list::Vector{Float64}`: A vector of GIC values for each candidate subset of features.
-    - `GIC_coeff::Vector{Vector{Int}}`: A vector of feature subsets (sets of indices) corresponding to the computed GIC values.
-    - `prob_distribution::Vector{Float64}`: The normalized probability distribution over the feature subsets (not currently returned, but can be included for future extension).
+    GIC_list = zeros(length(visit))
+    GIC_coeff = Vector{Any}(undef, length(visit))    # Vector{Any} -> plain R list
 
-    """
-
-    # Input validation
-    m, n = size(X)
-    
-    sets = collect(1:size(X,2))  # Get the feature indices
-    shuffle!(sets)
-    repeated_list = repeat(sets, Nsim)  # Repeat the list multiple times
-
-    GIC_coef_sets =  Init_Columns
-    GIC_c, M_inv = Calculate_GIC(Y, X[:, GIC_coef_sets])
-    
-    # Prepare outputs
-    GIC_list = zeros(length(repeated_list))
-    GIC_coeff = [Int[] for _ in 1:length(repeated_list)]
-    w = 1
-
-    # Parallelized loop
-    @sync for z in repeated_list
-        @async begin
-
-            local GIC_i, GIC_coef_sets_temp, A_inv, delta
-
-            if z in GIC_coef_sets  # Test removing a feature
-
-                index = findfirst(==(z), GIC_coef_sets)
-                GIC_coef_sets_temp = deleteat!(copy(GIC_coef_sets), index)
-                X_subsets = X[:, GIC_coef_sets_temp]
-
-                # Update inverse using block matrix manipulations
-                A_hat = M_inv[setdiff(1:end, index), setdiff(1:end, index)]
-                B_hat = M_inv[setdiff(1:end, index), index]
-                C_hat = M_inv[index, setdiff(1:end, index)]'
-                D_hat = only(M_inv[index, index])
-                A_inv = A_hat - ((B_hat / D_hat) * C_hat)
-
-                A_inv = inv(X_subsets' * X_subsets)
-                GIC_i = Calculate_GIC_short(Y, X_subsets, A_inv)
-
-                delta = tr(GIC_c) -  tr(GIC_i)
-              
-                if Float64(rand(Bernoulli(logistic(- delta/T)))) == 1  # Accept update with probability
-                    GIC_c = GIC_i
-                    GIC_coef_sets = GIC_coef_sets_temp
-                    M_inv = A_inv
-                    current_X = X_subsets    
-                end
-                GIC_list[w] = tr(GIC_c)
-                GIC_coeff[w] = copy(GIC_coef_sets)
-
-            elseif z ∉ GIC_coef_sets 
-                GIC_coef_sets_temp = prepend!(copy(GIC_coef_sets), z)
-                X_subsets = X[:, GIC_coef_sets_temp]
-
-                index = findfirst(==(z), GIC_coef_sets_temp)
-                Xsquare = X_subsets' * X_subsets
-
-                A_hat = Xsquare[setdiff(1:end, index), setdiff(1:end, index)]
-                B_hat = Xsquare[setdiff(1:end, index), index]
-                C_hat = Xsquare[index, setdiff(1:end, index)]'
-                D_hat = only(Xsquare[index, index])
-
-                topleft = M_inv + M_inv * B_hat * inv(D_hat - C_hat * M_inv * B_hat) * C_hat * M_inv
-                topright = -M_inv * B_hat * inv(D_hat - C_hat * M_inv * B_hat)
-                bottomleft = -inv(D_hat - C_hat * M_inv * B_hat) * C_hat * M_inv
-                bottomright = inv(D_hat - C_hat * M_inv * B_hat)
-                A_inv = [
-                    topleft           topright;
-                    bottomleft        bottomright
-                ]
-
-                GIC_i = Calculate_GIC_short(Y, X_subsets, A_inv)
-                
-                delta = GIC_i - GIC_c
-
-                if Float64(rand(Bernoulli(logistic(- delta/T)))) == 0  # Accept update with probability
-                    GIC_c = GIC_i
-                    GIC_coef_sets = GIC_coef_sets_temp
-                    M_inv = A_inv
-                    current_X = X_subsets 
-                end
-
-                GIC_list[w] = tr(GIC_c)
-                GIC_coeff[w] = copy(GIC_coef_sets)
+    crit = _criterion_symbol(Calculate_GIC)
+    if crit === nothing                          # user-supplied criterion
+        S = collect(Int, Init_Columns)
+        current, _ = Calculate_GIC(Y, X[:, S], p)
+        for (w, z) in enumerate(visit)
+            idx = findfirst(==(z), S)
+            cand = idx === nothing ? (length(S) + 1 < kcap ? vcat(z, S) : nothing) :
+                                     deleteat!(copy(S), idx)
+            if cand !== nothing
+                value, _ = Calculate_GIC(Y, X[:, cand], p)
+                accept(value, current) && ((current, S) = (value, cand))
             end
-            # Increment w after each iteration
-            w += 1
+            GIC_list[w] = tr(current)
+            GIC_coeff[w] = copy(S)
         end
+        return (GIC_list, GIC_coeff)
     end
-    
+
+    d = _SearchData(X, Y, crit, p, gamma)
+    f = _refit(d, reverse(collect(Int, Init_Columns)))
+    current = _score(d, f)
+    inS = falses(p)
+    inS[f.S] .= true
+
+    for (w, z) in enumerate(visit)
+        if inS[z]
+            j = findfirst(==(z), f.S)
+            value, cache = _try_remove(d, f, j)
+            if accept(value, current)
+                _accept_remove!(d, f, j, cache)
+                inS[z] = false
+                current = value
+            end
+        elseif length(f.S) + 1 < kcap
+            value, cache = _try_add(d, f, z)
+            if value !== nothing && accept(value, current)
+                _accept_add!(d, f, z, cache)
+                inS[z] = true
+                current = value
+            end
+        end
+        if f.accepted >= 200
+            f = _refit(d, f.S)
+            current = _score(d, f)
+        end
+        GIC_list[w] = tr(current)
+        GIC_coeff[w] = _report(f)
+    end
     return (GIC_list, GIC_coeff)
 end
-

@@ -1,72 +1,90 @@
-using LinearAlgebra, Statistics, StatsBase
-using DataFrames, StatsModels, GLM
-import GLM: LogitLink, LogLink, IdentityLink, InverseLink
+##############################################################################
+#  LP_to_Y.jl  --  simulate responses from a linear predictor eta = X * beta
+#
+#  Family              Link                        Extra arguments
+#  ------------------  --------------------------  ----------------------------
+#  Normal              identity                    std (default 1)
+#  Bernoulli           logit
+#  Binomial            logit                       n_trials (required)
+#  Poisson             log
+#  Gamma               log, mean exp(eta)          shape (default 1)
+#  Exponential         log, mean exp(eta)
+#  InverseGaussian     log, mean exp(eta)          shape (lambda, default 1)
+#  NegativeBinomial    log, mean exp(eta)          theta (size, default 1)
+#  Geometric           log, mean exp(eta)
+#  MultivariateNormal  identity (n x q eta)        cov_matrix (q x q, required)
+#  Multinomial         baseline-category logit     n_categories (required);
+#                      (last category = baseline)  beta is p x (n_categories-1)
+#
+#  Log-link linear predictors are clamped to [-30, 30] to avoid overflow.
+##############################################################################
+using LinearAlgebra
 using Distributions
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 1 · LP_to_Y  — simulate responses given a linear predictor
-# ─────────────────────────────────────────────────────────────────────────────
-"""
-    LP_to_Y(X, β; family="Normal", …)
+const _LOG_LINK_FAMILIES = ("Poisson", "Gamma", "Exponential", "InverseGaussian",
+                            "NegativeBinomial", "Geometric")
 
-Given a design matrix `X` (n×p) and coefficient vector or matrix `β`,
-simulate response `Y` according to the requested `family`.
+_lp_softmax(z) = (e = exp.(z .- maximum(z)); e ./ sum(e))
+_inv_logit(x) = 1 / (1 + exp(-x))
 
-For `family="Multinomial"` supply a coefficient matrix of size
-`p × (K-1)`; pass `n_categories=K`.  The last class is the baseline.
-"""
-function LP_to_Y(X, β;
-        family::AbstractString         = "Normal",
-        n_trials::Union{Nothing,Int}   = nothing,
-        std::Union{Nothing,Float64}    = nothing,
-        shape::Union{Nothing,Float64}  = nothing,
-        cov_matrix::Union{Nothing,AbstractMatrix} = nothing,
-        n_categories::Union{Nothing,Int}= nothing)
+function LP_to_Y(X::AbstractMatrix, true_beta::Union{AbstractVector, AbstractMatrix},
+                 family::String = "Normal";
+                 n_trials::Union{Nothing, Integer} = nothing,
+                 std::Union{Nothing, Real} = nothing,
+                 shape::Union{Nothing, Real} = nothing,
+                 theta::Union{Nothing, Real} = nothing,
+                 cov_matrix::Union{Nothing, AbstractMatrix} = nothing,
+                 n_categories::Union{Nothing, Integer} = nothing)
 
-    η = X * β
-    n = size(X,1)
+    eta = X * true_beta
 
-    if family == "Bernoulli"
-        p = @. 1 / (1 + exp(-η))
-        return rand.(Bernoulli.(p))
-
-    elseif family == "Binomial"
-        n_trials === nothing && error("n_trials required")
-        p = @. 1 / (1 + exp(-η))
-        return rand.(Binomial.(n_trials, p))
+    if family in _LOG_LINK_FAMILIES
+        size(eta, 2) == 1 || error("Family $family expects a vector beta.")
+        mu = exp.(clamp.(vec(eta), -30.0, 30.0))
+        if family == "Poisson"
+            return rand.(Poisson.(mu))
+        elseif family == "Gamma"
+            a = isnothing(shape) ? 1.0 : Float64(shape)
+            return rand.(Gamma.(a, mu ./ a))                 # mean mu
+        elseif family == "Exponential"
+            return rand.(Exponential.(mu))                   # mean mu
+        elseif family == "InverseGaussian"
+            lambda = isnothing(shape) ? 1.0 : Float64(shape)
+            return rand.(InverseGaussian.(mu, lambda))       # mean mu
+        elseif family == "NegativeBinomial"
+            r = isnothing(theta) ? 1.0 : Float64(theta)
+            return rand.(NegativeBinomial.(r, r ./ (r .+ mu)))  # mean mu
+        else # Geometric: number of failures, mean (1 - p) / p = mu
+            return rand.(Geometric.(1 ./ (1 .+ mu)))
+        end
 
     elseif family == "Normal"
-        σ = isnothing(std) ? 1.0 : std
-        return η .+ σ .* randn(n)
+        s = isnothing(std) ? 1.0 : Float64(std)
+        return eta .+ s .* randn(size(eta)...)
 
-    elseif family == "Poisson"
-        μ = @. exp(clamp(η, -30, 30))
-        return rand.(Poisson.(μ))
+    elseif family == "Bernoulli"
+        return Float64.(rand.(Bernoulli.(_inv_logit.(vec(eta)))))
 
-    elseif family in ("Gamma", "Exponential")
-        κ = isnothing(shape) ? 1.0 : shape
-        μ = @. exp(η)
-        θ = μ ./ κ                       # scale so that mean = κθ
-        return rand.(Gamma.(κ, θ))
+    elseif family == "Binomial"
+        isnothing(n_trials) && error("n_trials must be specified for Binomial family")
+        return rand.(Binomial.(n_trials, _inv_logit.(vec(eta))))
 
     elseif family == "MultivariateNormal"
-        cov_matrix === nothing && error("cov_matrix required")
-        isposdef(cov_matrix) || error("cov_matrix not positive-definite")
-        Y = similar(η)
-        @inbounds for i in 1:n
-            Y[i,:] = rand(MvNormal(vec(η[i,:]), cov_matrix))
-        end
-        return Y
+        isnothing(cov_matrix) && error("cov_matrix must be specified for MultivariateNormal")
+        isposdef(cov_matrix) || error("Covariance matrix must be positive definite")
+        size(cov_matrix, 1) == size(eta, 2) ||
+            error("cov_matrix must be q x q, where q = number of columns of true_beta")
+        L = cholesky(Symmetric(Matrix{Float64}(cov_matrix))).L
+        return eta .+ randn(size(eta)...) * L'               # rows ~ N(eta_i, Sigma)
 
     elseif family == "Multinomial"
-        K = isnothing(n_categories) ? size(β,2)+1 : n_categories
-        size(β,2) == K-1 || error("β must be p × (K-1)")
-        P = hcat(η, zeros(n))            # add baseline logit
-        P .-= maximum(P, dims=2)         # soft-max stability
-        P  = exp.(P);   P ./= sum(P, dims=2)
-        return [rand(Categorical(Vector(view(P, i, :)))) for i in 1:n]
+        isnothing(n_categories) && error("n_categories must be specified for Multinomial")
+        n_categories < 2 && error("n_categories must be ≥ 2")
+        size(true_beta, 2) == n_categories - 1 ||
+            error("true_beta must have size (n_features × (n_categories-1))")
+        return [rand(Categorical(_lp_softmax([row; 0.0]))) for row in eachrow(eta)]
 
     else
-        error("Unsupported family $family")
+        error("Unsupported family: $family")
     end
 end

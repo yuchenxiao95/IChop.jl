@@ -1,123 +1,76 @@
 using GICVariableSelection
-using Distributions
-using Random
-using DataFrames
+using Random, LinearAlgebra
 using Test
-using GLM
 
-@testset "Univariate Normal Model Selection" begin
-    N, P, k = 1000, 500, 5
-    rho = 0.0
-    true_columns = sort(sample(1:P, k, replace=false))
-    SNR = [0.09, 0.14, 0.25, 0.42, 0.71, 1.22, 2.07, 3.52, 6.00]
+# Final model of a search
+last_model(fit) = sort(fit[2][end])
 
-    mu = zeros(P)
-    cov = fill(rho, P, P)
-    for i in 1:P
-        cov[i, i] = 1.0
-    end
-    X = Matrix(rand(MvNormal(mu, cov), N)')
+@testset "Linear model" begin
+    Random.seed!(1)
+    n, p = 1000, 100
+    X = randn(n, p)
+    truth = sort(randperm(p)[1:5])
+    beta = zeros(p); beta[truth] .= 2
+    Y = LP_to_Y(X, beta, "Normal"; std = 2.0)
 
-    true_beta = zeros(P)
-    true_beta[true_columns] .= 2
-    variance = (true_beta' * cov * true_beta) / SNR[5]
-    std = sqrt(variance)
+    fit = GIC_Variable_Selection(X, Y, collect(1:p), Calculate_GIC6, Calculate_GIC6_short, p;
+                                 Nsim = 3)
+    @test length(fit[1]) == 3p
+    @test length(fit[2]) == 3p
+    @test last_model(fit) == truth
 
-    Y = LP_to_Y(X, true_beta, family="Normal", std=std)
-
-    init_cols  = collect(1:P)
-    tmp = GIC_Variable_Selection(X, Y, init_cols, Calculate_BIC, Calculate_BIC_short, Nsim=8)
-
-    estimated = tmp[2][end]
-    @test typeof(tmp[1]) == Vector{Float64}
-    @test typeof(tmp[2]) == Vector{Vector{Int}}
-    @test length(setdiff(true_columns, estimated)) <= k  # allow some tolerance
-    @test length(setdiff(estimated, true_columns)) >= 0  # allow some tolerance
+    # The fast path gives the same search as the generic one (a wrapped criterion)
+    Random.seed!(2); fast = GIC_Variable_Selection(X, Y, 1:10, Calculate_BIC, Calculate_BIC_short, p)
+    slow_crit(Y, Xs, P) = Calculate_BIC(Y, Xs, P)
+    Random.seed!(2); slow = GIC_Variable_Selection(X, Y, 1:10, slow_crit, nothing, p)
+    @test sort(fast[2][end]) == sort(slow[2][end])
+    @test fast[1] ≈ slow[1]
 end
 
-
-@testset "Univariate Poisson Model Selection" begin
-    N, P, k = 3000, 100, 5
-    rho = 0.0
-    true_columns = sort(sample(1:P, k, replace=false))
-    SNR = [0.09, 0.14, 0.25, 0.42, 0.71, 1.22, 2.07, 3.52, 6.00]
-
-    mu = zeros(P)
-    cov = fill(rho, P, P)
-    for i in 1:P
-        cov[i, i] = 1.0
-    end
-    X = Matrix(rand(MvNormal(mu, cov), N)')
-
-    true_beta = zeros(P)
-    true_beta[true_columns] .= 1
-    variance = (true_beta' * cov * true_beta) / SNR[5]
-    std = sqrt(variance)
-
-    Y = LP_to_Y(X, true_beta, family="Binomial", n_trials = 1)
-    init_cols  = collect(1:P)
-    tmp = GIC_Variable_Selection(X, Y_to_LP(Float64.(Y),"Binomial",n_trials=1), init_cols, Calculate_SIC, Calculate_SIC_short, Nsim=4)
-    
-    estimated = tmp[2][end]
-
-    X_selected = X[:, estimated]
-
-    beta_hat = Beta_estimate(Y, X_selected; family = :Binomial,  add_intercept = false)
-
-    @test typeof(tmp[1]) == Vector{Float64}
-    @test typeof(tmp[2]) == Vector{Vector{Int}}
-    @test length(setdiff(true_columns, estimated)) <= k  # allow some tolerance
-    @test length(setdiff(estimated, true_columns)) >= 0  # allow some tolerance
+@testset "Model-size cap k" begin
+    Random.seed!(3)
+    n, p = 500, 60
+    X = randn(n, p)
+    Y = X[:, 1:20] * ones(20) + randn(n)
+    fit = GIC_Variable_Selection(X, Y, Int[], Calculate_AIC, Calculate_AIC_short, 10; Nsim = 2)
+    @test maximum(length, fit[2]) <= 9
 end
 
-
-@testset "Multivariate Normal Model Selection" begin
-    N, P, k = 1000, 500, 5
-    rho = 0.0
-    SNR = [0.09, 0.14, 0.25, 0.42, 0.71, 1.22, 2.07, 3.52, 6.00]
-
-    mu = zeros(P)
-    cov = fill(rho, P, P)
-    for i in 1:P
-        cov[i, i] = 1.0
-    end
-    X = Matrix(rand(MvNormal(mu, cov), N)')
-
-    m = 5
-    multi_beta = zeros(P, m)
-    multi_beta_true_columns = Vector{Vector{Int}}(undef, m)
-
+@testset "Multivariate normal" begin
+    Random.seed!(4)
+    n, p, m = 1000, 100, 3
+    X = randn(n, p)
+    B = zeros(p, m)
+    truth = Int[]
     for i in 1:m
-        cols = sort(sample(1:P, k, replace=false))
-        multi_beta_true_columns[i] = cols
-        multi_beta[cols, i] .= collect(range(10, 0.1, length=k))
+        cols = randperm(p)[1:4]
+        B[cols, i] .= 3
+        append!(truth, cols)
     end
+    Y = LP_to_Y(X, B, "MultivariateNormal"; cov_matrix = Matrix(1.0I, m, m))
+    fit = GIC_Variable_Selection(X, Y, collect(1:p), Calculate_BIC, Calculate_BIC_short, p;
+                                 Nsim = 3)
+    @test isempty(setdiff(unique(truth), last_model(fit)))
+end
 
-    variance = (multi_beta' * cov * multi_beta) ./ SNR[5]
-    cov_p = fill(rho, m, m)
-    for i in 1:m
-        cov_p[i, i] = 1.0
-    end
+@testset "Poisson and multinomial" begin
+    Random.seed!(5)
+    n, p = 2000, 50
+    X = randn(n, p)
+    truth = [3, 17, 42]
+    beta = zeros(p); beta[truth] = [1.0, -1.0, 0.8]
 
-    Y = LP_to_Y(X, multi_beta, family="Multinomial", n_categories = 6, cov_matrix=cov_p)
+    y = LP_to_Y(X, beta, "Poisson")
+    fit = GIC_Variable_Selection(X, Y_to_LP(y, "Poisson"), collect(1:10),
+                                 Calculate_GIC6, Calculate_GIC6_short, p; Nsim = 3)
+    @test last_model(fit) == truth
+    b = Beta_estimate(y, X[:, truth]; family = "Poisson")
+    @test length(b) == 4
+    @test isapprox(b[2:end], beta[truth]; atol = 0.1)
 
-
-    init_cols  = collect(1:P)
-    tmp = GIC_Variable_Selection(X, Y_to_LP(Y, "Multinomial", n_categories = 6), init_cols, Calculate_SIC, Calculate_SIC_short, Nsim=4)
-
-
-    estimated = tmp[2][end]
-    all_true = unique(reduce(vcat, multi_beta_true_columns))
-
-    X_selected = X[:, estimated ]
-
-    beta_hat = Beta_estimate(Y, X_selected; family = :Multinomial)
-
-    idx = vec(any(multi_beta .!= 0.0, dims = 2))   # Boolean vector marking rows with any non-zero
-    true_beta = multi_beta[idx, :]  
-
-    @test typeof(tmp[1]) == Vector{Float64}
-    @test typeof(tmp[2]) == Vector{Vector{Int}}
-    @test length(setdiff(all_true, estimated)) <= k  # allow some tolerance
-    @test length(setdiff(estimated, all_true)) >= 0  # allow some tolerance
+    B = zeros(p, 2); B[truth, 1] .= 1.5; B[truth, 2] = [-1.5, 1.5, -1.5]
+    y_mn = LP_to_Y(X, B, "Multinomial"; n_categories = 3)
+    @test sort(unique(y_mn)) == [1, 2, 3]
+    lp = Y_to_LP(y_mn, "Multinomial", n_categories = 3)
+    @test size(lp) == (n, 2)
 end
