@@ -126,9 +126,9 @@ of selected variables and $P$ the number of candidate predictors:
 | GIC5 | $d \frac{\sigma^2}{n} \log\log n \log P$ | [Kim et al. (2012)](https://jmlr.org/papers/v13/kim12a.html) |
 | GIC6 | $d \frac{\sigma^2}{n} \log n \log P$ | [Kim et al. (2012)](https://jmlr.org/papers/v13/kim12a.html) |
 | CAIC | $d \frac{\sigma^2}{n} (\log n + 1)$ | [Bozdogan (1987)](https://doi.org/10.1007/BF02294361) |
+| CAICF | $d \frac{\sigma^2}{n} (\log n + 1) + \frac{\sigma^2}{n} \log\det(X_d^\top X_d / \sigma^2)$ | [Bozdogan (1987)](https://doi.org/10.1007/BF02294361) |
 | SIC | $d \frac{\sigma^2}{n} \sqrt{n}$ | [Shao (1997)](https://www3.stat.sinica.edu.tw/statistica/j7n2/j7n21/j7n21.htm) |
 | AICc | $(d + 1) \frac{\sigma^2}{n - d - 2}$ | [Hurvich and Tsai (1989)](https://doi.org/10.1093/biomet/76.2.297) |
-| CAICF | $d \frac{\sigma^2}{n} (\log n + 1) + \frac{\sigma^2}{n} \log\det(X_d^\top X_d / \sigma^2)$ | [Bozdogan (1987)](https://doi.org/10.1007/BF02294361) |
 | EBIC | $d \frac{\sigma^2}{n} \left(\log n + \gamma \log \binom{P}{d}\right)$, $\gamma = 0.6$ by default | [Chen and Chen (2008)](https://doi.org/10.1093/biomet/asn034) |
 
 The package also provides AttIC, an attention-weighted criterion specific to
