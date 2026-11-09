@@ -1,6 +1,6 @@
-module GICVariableSelection
+module IChop
 
-# The source files are shared with the R package GICHighDimension
+# The source files are shared with the R package IChop
 # (inst/julia/), so keep them identical when changing either.
 
 using LinearAlgebra

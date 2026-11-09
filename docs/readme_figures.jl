@@ -1,7 +1,7 @@
 # Runs the "Examples" code in README.md, writes the printed output back into
 # each code block (as "#>" lines), and redraws the figure that follows each
 # block in docs/figures/. Mirrors data-raw/readme_figures.R in the R package
-# GICHighDimension. The run times exclude compilation: the hidden helper block
+# IChop. The run times exclude compilation: the hidden helper block
 # in the README compiles every method once before anything is timed.
 #
 # Run from the package root:
@@ -188,7 +188,7 @@ function process(path, start_heading, figure_dir)
     doc = readlines(path)
     i = findfirst(l -> occursin(start_heading, l), doc)
     mod = Module(:ReadmeExamples)
-    Core.eval(mod, :(using GICVariableSelection))
+    Core.eval(mod, :(using IChop))
     while i <= length(doc)
         if occursin(r"^```julia\s*$", doc[i])
             stop  = i + findfirst(l -> occursin(r"^```\s*$", l), doc[(i + 1):end])

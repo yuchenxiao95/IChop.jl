@@ -1,10 +1,10 @@
 import Pkg
 Pkg.activate(".")
 
-Pkg.rm("GICVariableSelection")  # optional, to remove completely
-Pkg.add(url="https://github.com/yuchenxiao95/GICVariableSelection")
+Pkg.rm("IChop")  # optional, to remove completely
+Pkg.add(url="https://github.com/yuchenxiao95/IChop.jl")
 
-using GICVariableSelection, Plots, StatsBase, Distributions, DataFrames, LinearAlgebra, Random
+using IChop, Plots, StatsBase, Distributions, DataFrames, LinearAlgebra, Random
 
 
 Random.seed!(1234) 

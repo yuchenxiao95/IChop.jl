@@ -1,4 +1,4 @@
-using GICVariableSelection
+using IChop
 using Random, LinearAlgebra
 using Test
 

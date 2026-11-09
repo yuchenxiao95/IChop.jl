@@ -1,4 +1,4 @@
-name = "GICVariableSelection"
+name = "IChop"
 uuid = "78594bf8-6feb-41fb-aeeb-fdae0bd7f97a"
 keywords = ["variable-selection", "GIC", "high-dimensions"]
 authors = ["Yuchen Xiao <jack.xiao@utexas.edu>"]

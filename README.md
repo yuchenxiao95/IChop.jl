@@ -1,22 +1,22 @@
-# GICVariableSelection.jl
+# IChop.jl
 
 ## Installation
 
-Install the development version of `GICVariableSelection` from GitHub
+Install the development version of `IChop` from GitHub
 (Julia ≥ 1.9):
 
 ```julia
 using Pkg
-Pkg.add(url = "https://github.com/yuchenxiao95/GICVariableSelection")
+Pkg.add(url = "https://github.com/yuchenxiao95/IChop.jl")
 ```
 
 The same methods are available in R through the package
-[GICHighDimension](https://github.com/yuchenxiao95/GICHighDimension), which
+[IChop](https://github.com/yuchenxiao95/IChop), which
 calls this Julia code.
 
 ## Overview
 
-GICHighDimension addresses the computational barrier of solving
+IChop addresses the computational barrier of solving
 $\ell_0$-penalized regression in linear models where the number of
 predictors $p$ is large, in the hundreds or even the thousands, yet smaller
 than the number of observations $n$. Finding the optimal solution of
