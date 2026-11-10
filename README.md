@@ -89,8 +89,8 @@ z_j(t+1) = \mathbf{1}\left\lbrace
   \frac{1}{n} \beta^\top X_t^\top H_d X_t \beta \right\rbrace ,
 $$
 
-where $H_{d+1}$ includes $x_j$. Under these updates the quantity never
-decreases, and it is bounded above by
+where $H_{d+1}$ includes $x_j$. Under these updates the energy term is
+nondecreasing and bounded above by
 $\frac{1}{n} \beta^\top X_t^\top X_t \beta$. Replacing the unknown signal with
 the data gives the update rule for AIC,
 
