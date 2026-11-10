@@ -91,8 +91,8 @@ $$
 
 where $H_{d+1}$ includes $x_j$. Under these updates the energy term is
 nondecreasing and bounded above by
-$\frac{1}{n} \beta^\top X_t^\top X_t \beta$. Using the decomposition of the
-expectation of a quadratic term,
+$\frac{1}{n} \beta^\top X_t^\top X_t \beta$. The true signal is unknown, but it
+is linked to the data through
 
 $$
 \frac{1}{n} \beta^\top X^\top H_d X \beta
