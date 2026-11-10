@@ -146,10 +146,14 @@ of selected variables and $P$ the number of candidate predictors:
 The examples below compare three IC on the same data. In increasing
 order of penalty per variable, they are AIC ($c_n = 2$), BIC ($\log n$) and
 GIC6 ($\log n \log P$), where $P$ is the number of candidate
-predictors. Each example also runs the Boltzmann search
-(`GIC_Variable_Selection_Boltzmann()`) with GIC6, which accepts a move that
-lowers the criterion with a small probability, so it can leave a local
-optimum. For reference, they also fit the lasso and the adaptive lasso with
+predictors. Each example also runs the Boltzmann machine
+(`GIC_Variable_Selection_Boltzmann()`) with GIC6, which uses probabilistic updates instead of the deterministic
+updates of a standard Hopfield network. The Boltzmann machine accepts a move
+that lowers the criterion by $\Delta$ with probability $1/(1 + e^{\Delta/T})$,
+where the temperature $T$ is a tuning parameter. The Boltzmann machine can
+leave a local optimum and provide some uncertainty quantification.
+
+For reference, the examples also fit the lasso and the adaptive lasso with
 [GLMNet.jl](https://github.com/JuliaStats/GLMNet.jl), tuned by 10-fold
 cross-validation (the $\lambda$ with the smallest cross-validated loss); the
 adaptive lasso uses weights from a ridge pilot fit.
