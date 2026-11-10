@@ -351,11 +351,11 @@ selection_table(fits, true_cols)
 #> n2000 AdaLasso     39        34         0    7.91
 ```
 
-![Criterion along the search, linear model with p = 500](docs/figures/README-linear-criterion.png)
+<p align="center"><img src="docs/figures/README-linear-criterion.png" alt="Criterion along the search, linear model with p = 500" width="85%"></p>
 
-![Model size along the search, linear model with p = 500](docs/figures/README-linear-size.png)
+<p align="center"><img src="docs/figures/README-linear-size.png" alt="Model size along the search, linear model with p = 500" width="85%"></p>
 
-![Run time, linear model with p = 500](docs/figures/README-linear-runtime.png)
+<p align="center"><img src="docs/figures/README-linear-runtime.png" alt="Run time, linear model with p = 500" width="85%"></p>
 
 
 ### Multivariate normal
@@ -392,11 +392,11 @@ selection_table(fits, true_union)
 #> n2000 AdaLasso     54        30         1   24.55
 ```
 
-![Criterion along the search, multivariate normal response](docs/figures/README-multivariate-criterion.png)
+<p align="center"><img src="docs/figures/README-multivariate-criterion.png" alt="Criterion along the search, multivariate normal response" width="85%"></p>
 
-![Model size along the search, multivariate normal response](docs/figures/README-multivariate-size.png)
+<p align="center"><img src="docs/figures/README-multivariate-size.png" alt="Model size along the search, multivariate normal response" width="85%"></p>
 
-![Run time, multivariate normal response](docs/figures/README-multivariate-runtime.png)
+<p align="center"><img src="docs/figures/README-multivariate-runtime.png" alt="Run time, multivariate normal response" width="85%"></p>
 
 
 ### Generalized linear models
@@ -450,11 +450,11 @@ round.(Beta_estimate(y_pois, X[:, last_model(fits.n2000.GIC6)]; family = "Poisso
 #>   0.59
 ```
 
-![Criterion along the search, Poisson response](docs/figures/README-poisson-criterion.png)
+<p align="center"><img src="docs/figures/README-poisson-criterion.png" alt="Criterion along the search, Poisson response" width="85%"></p>
 
-![Model size along the search, Poisson response](docs/figures/README-poisson-size.png)
+<p align="center"><img src="docs/figures/README-poisson-size.png" alt="Model size along the search, Poisson response" width="85%"></p>
 
-![Run time, Poisson response](docs/figures/README-poisson-runtime.png)
+<p align="center"><img src="docs/figures/README-poisson-runtime.png" alt="Run time, Poisson response" width="85%"></p>
 
 #### Binomial counts (10 trials)
 
@@ -477,11 +477,11 @@ selection_table(fits, true_cols)
 #> n2000 AdaLasso     34        29         0   13.58
 ```
 
-![Criterion along the search, binomial response](docs/figures/README-binomial-criterion.png)
+<p align="center"><img src="docs/figures/README-binomial-criterion.png" alt="Criterion along the search, binomial response" width="85%"></p>
 
-![Model size along the search, binomial response](docs/figures/README-binomial-size.png)
+<p align="center"><img src="docs/figures/README-binomial-size.png" alt="Model size along the search, binomial response" width="85%"></p>
 
-![Run time, binomial response](docs/figures/README-binomial-runtime.png)
+<p align="center"><img src="docs/figures/README-binomial-runtime.png" alt="Run time, binomial response" width="85%"></p>
 
 #### Multinomial (three categories)
 
@@ -510,11 +510,11 @@ selection_table(fits, true_cols)
 #> n2000 AdaLasso     15        10         0   25.41
 ```
 
-![Criterion along the search, multinomial response](docs/figures/README-multinomial-criterion.png)
+<p align="center"><img src="docs/figures/README-multinomial-criterion.png" alt="Criterion along the search, multinomial response" width="85%"></p>
 
-![Model size along the search, multinomial response](docs/figures/README-multinomial-size.png)
+<p align="center"><img src="docs/figures/README-multinomial-size.png" alt="Model size along the search, multinomial response" width="85%"></p>
 
-![Run time, multinomial response](docs/figures/README-multinomial-runtime.png)
+<p align="center"><img src="docs/figures/README-multinomial-runtime.png" alt="Run time, multinomial response" width="85%"></p>
 
 ## License
 
