@@ -18,9 +18,10 @@ using Plots
 include(joinpath(@__DIR__, "glmnet_patch.jl"))   # GLMNet.jl fix used by the lasso examples
 
 # Search methods (lines) and the lasso fits (squares in the model-size panel)
-const PALETTE = ["AIC" => "#2a78d6", "BIC" => "#eb6834", "GIC6" => "#1baf7a",
-                 "Boltzmann" => "#d0459b"]
-const LASSO = ["Lasso" => "#8a5cc2", "AdaLasso" => "#b8860b"]
+# Okabe-Ito colours, as in the R README (also distinguishable for colour-blind readers)
+const PALETTE = ["AIC" => "#0072B2", "BIC" => "#D55E00", "GIC6" => "#009E73",
+                 "Boltzmann" => "#CC79A7"]
+const LASSO = ["Lasso" => "#E69F00", "AdaLasso" => "#000000"]
 const METHODS = vcat(PALETTE, LASSO)
 const SIZE_STYLE = ["n1000" => :solid, "n2000" => :dot]   # solid: n = 1000, dotted: n = 2000
 
@@ -37,48 +38,88 @@ fit_of(fits, s, m) = getfield(getfield(fits, Symbol(s)), Symbol(m))
 # method, including the lasso and adaptive lasso. Light grey vertical lines
 # mark a new pass over the predictors; the dashed line marks the true size.
 # `fits` is fits.<sample size>.<method>, as returned by compare_criteria().
-function plot_criteria(fits, p, true_size, file)
+# Three figures per example, each drawn at full page width, as in the R README:
+# each criterion's value after every search step, the model size after every
+# step, and the run time of every method. One line per method and sample size;
+# light grey vertical lines mark a new pass over the predictors; the dashed
+# line marks the true size.
+const COMMON = (legend = false, grid = false, framestyle = :box, titlefontsize = 16,
+                guidefontsize = 14, tickfontsize = 12, left_margin = 9Plots.mm,
+                bottom_margin = 6Plots.mm, right_margin = 4Plots.mm)
+
+# Legend strip under a panel: method colours (lines, or squares for the lasso
+# fits), then the sample-size line types. Labels are padded so they do not run
+# into their keys.
+function legend_strip(lines, squares)
+    key = plot(; framestyle = :none, legend = :top,
+               legend_columns = cld(length(lines) + length(squares) + 2, 2),
+               foreground_color_legend = nothing, background_color_legend = nothing,
+               legendfontsize = 13, xlims = (0, 1), ylims = (0, 1))
+    for (m, color) in lines
+        plot!(key, [NaN], [NaN]; color = color, lw = 3.5, label = "  " * m * "   ")
+    end
+    for (m, color) in squares
+        scatter!(key, [NaN], [NaN]; color = color, marker = :rect, markersize = 8,
+                 markerstrokewidth = 0, label = "  " * m * "   ")
+    end
+    for (s, style) in SIZE_STYLE
+        plot!(key, [NaN], [NaN]; color = "#404040", ls = style, lw = 3,
+              label = "  n = " * s[2:end] * "   ")
+    end
+    key
+end
+
+function save_figure(panel, key, file)
+    fig = plot(panel, key; layout = @layout([a; b{0.16h}]), size = (1000, 575), dpi = 200)
+    savefig(fig, file)
+end
+
+function plot_criteria(fits, p, true_size, stem)
     gr()
+    mkpath(dirname(stem))
     nsteps = length(fit_of(fits, "n1000", "AIC").values)
     steps  = 1:nsteps
     passes = p:p:(nsteps - 1)
+
+    # Criterion along the search
+    crit = plot(; title = "Criterion along the search", xlabel = "Search step",
+                ylabel = "Criterion value", COMMON...)
+    isempty(passes) || vline!(crit, collect(passes); color = "#d9d9d9", lw = 0.8)
+    for (s, style) in SIZE_STYLE, (m, color) in PALETTE
+        plot!(crit, steps, fit_of(fits, s, m).values; seriestype = :steppost,
+              color = color, ls = style, lw = 2.6)
+    end
+    save_figure(crit, legend_strip(PALETTE, []), stem * "-criterion.png")
+
+    # Model size along the search; log scale when the search starts from all
+    # predictors, with a tick at the true size. The lasso and adaptive lasso
+    # have no search path: their final model sizes are squares at the right
+    # edge (light: n = 1000, dark: n = 2000).
     path_sizes  = [length.(fit_of(fits, s, m).models) for (s, _) in SIZE_STYLE for (m, _) in PALETTE]
     lasso_sizes = [length(fit_of(fits, s, m).selected) for (s, _) in SIZE_STYLE for (m, _) in LASSO]
     log_y = maximum(maximum, path_sizes) > 100
     log_ticks = sort(unique([5, 10, 100, 500, true_size]))
-
-    common = (legend = false, grid = false, framestyle = :box, titlefontsize = 11,
-              guidefontsize = 10, tickfontsize = 9, left_margin = 6Plots.mm,
-              bottom_margin = 3Plots.mm)
-    crit = plot(; title = "Criterion along the search", xlabel = "Search step",
-                ylabel = "Criterion value", common...)
     size_ylabel = log_y ? "Number of predictors (log scale)" : "Number of predictors"
     msize = plot(; title = "Model size (true size = $true_size)", xlabel = "Search step",
-                 ylabel = size_ylabel, common...)
+                 ylabel = size_ylabel, COMMON...)
     if log_y
         lo, hi = extrema(vcat(log_ticks, reduce(vcat, path_sizes), lasso_sizes))
         plot!(msize; yscale = :log10, yticks = (log_ticks, string.(log_ticks)),
               ylims = (lo / 1.15, hi * 1.15))
     end
-    for pl in (crit, msize)
-        isempty(passes) || vline!(pl, collect(passes); color = "#d9d9d9", lw = 0.8)
-    end
+    isempty(passes) || vline!(msize, collect(passes); color = "#d9d9d9", lw = 0.8)
     hline!(msize, [true_size]; color = "#595959", ls = :dash, lw = 1)
-
     for (s, style) in SIZE_STYLE, (m, color) in PALETTE
-        fit = fit_of(fits, s, m)
-        plot!(crit, steps, fit.values; seriestype = :steppost, color = color, ls = style, lw = 2)
-        plot!(msize, steps, length.(fit.models); seriestype = :steppost, color = color,
-              ls = style, lw = 2)
+        plot!(msize, steps, length.(fit_of(fits, s, m).models); seriestype = :steppost,
+              color = color, ls = style, lw = 2.6)
     end
-    # Lasso and adaptive lasso have no search path: their final model sizes are
-    # squares at the right edge (light: n = 1000, dark: n = 2000)
     for (i, (s, _)) in enumerate(SIZE_STYLE), (m, color) in LASSO
-        x = nsteps * (i == 1 ? 0.94 : 0.98)
+        x = nsteps * (i == 1 ? 0.96 : 0.99)
         scatter!(msize, [x], [length(fit_of(fits, s, m).selected)]; marker = :rect,
-                 markersize = 7, markerstrokewidth = 0,
+                 markersize = 9, markerstrokewidth = 0,
                  color = i == 1 ? tint(color) : color)
     end
+    save_figure(msize, legend_strip(PALETTE, LASSO), stem * "-size.png")
 
     # Run time of every method: light bars n = 1000, dark bars n = 2000
     secs = [max(fit_of(fits, s, m).seconds, 0.005) for (m, _) in METHODS, (s, _) in SIZE_STYLE]
@@ -86,43 +127,19 @@ function plot_criteria(fits, p, true_size, file)
     ticks = filter(t -> ylo <= t <= yhi, [m * 10.0^e for e in -3:3 for m in (1, 2, 5)])
     ticklabels = [t >= 1 ? string(round(Int, t)) : rstrip(string(round(t, sigdigits = 1)), '0')
                   for t in ticks]
-    rt = plot(; title = "Run time",
+    rt = plot(; title = "Run time", xlabel = "light: n = 1000, dark: n = 2000",
               ylabel = "Seconds (log scale)", yscale = :log10,
               ylims = (ylo, yhi), yticks = (ticks, ticklabels),
               xlims = (0.4, length(METHODS) + 0.6),
-              xticks = (1:length(METHODS), first.(METHODS)), xrotation = 30, common...)
-    annotate!(rt, 0.55, yhi / 1.6, text("light: n = 1000\ndark: n = 2000", 8, :left, :top))
+              xticks = (1:length(METHODS), first.(METHODS)), COMMON...,
+              size = (1000, 500), dpi = 200)
     for (i, (m, color)) in enumerate(METHODS), j in 1:2
         x0 = i - 0.36 + (j - 1) * 0.36
         plot!(rt, Shape([x0, x0 + 0.34, x0 + 0.34, x0], [ylo, ylo, secs[i, j], secs[i, j]]);
               color = j == 1 ? tint(color) : color, linewidth = 0)
     end
-
-    # Legend rows under the panels: method colours, then sample-size line types
-    legend_row(ncol) = plot(; framestyle = :none, legend = :top, legend_columns = ncol,
-                            foreground_color_legend = nothing,
-                            background_color_legend = nothing, legendfontsize = 9,
-                            xlims = (0, 1), ylims = (0, 1))
-    key1 = legend_row(length(METHODS))
-    for (m, color) in PALETTE
-        plot!(key1, [NaN], [NaN]; color = color, lw = 2.5, label = m)
-    end
-    for (m, color) in LASSO
-        scatter!(key1, [NaN], [NaN]; color = color, marker = :rect, markersize = 6,
-                 markerstrokewidth = 0, label = m)
-    end
-    key2 = legend_row(2)
-    for (s, style) in SIZE_STYLE
-        plot!(key2, [NaN], [NaN]; color = "#404040", ls = style, lw = 2,
-              label = "n = " * s[2:end])
-    end
-
-    fig = plot(crit, msize, rt, key1, key2;
-               layout = @layout([a b c; d{0.06h}; e{0.06h}]),
-               size = (1150, 470), dpi = 200)
-    mkpath(dirname(file))
-    savefig(fig, file)
-    println("wrote ", file)
+    savefig(rt, stem * "-runtime.png")
+    println("wrote ", stem, "-{criterion,size,runtime}.png")
 end
 
 # Should the value of `ex` be shown, as at the REPL with R's visibility rules?
@@ -202,8 +219,9 @@ function process(path, start_heading, figure_dir)
                 if m !== nothing
                     multi = occursin("multivariate", m.match)
                     truth = getfield(mod, multi ? :true_union : :true_cols)
+                    stem = replace(m.match, r"-(criterion|size|runtime)\.png$" => "")
                     plot_criteria(getfield(mod, :fits), getfield(mod, :p), length(truth),
-                                  joinpath(figure_dir, m.match))
+                                  joinpath(figure_dir, stem))
                     break
                 end
                 nxt += 1

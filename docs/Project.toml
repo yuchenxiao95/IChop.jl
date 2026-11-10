@@ -1,5 +1,5 @@
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
-IChop = "78594bf8-6feb-41fb-aeeb-fdae0bd7f97a"
 GLMNet = "8d5ece8b-de18-5317-b113-243142960cc6"
+IChop = "78594bf8-6feb-41fb-aeeb-fdae0bd7f97a"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
