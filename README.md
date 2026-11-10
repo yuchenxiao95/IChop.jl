@@ -54,7 +54,7 @@ E(z) = -z^\top W z ,
 $$
 
 and $E$ is bounded below, so the network always converges to a locally stable
-state (Bruck, 1990; Rojas, 1996).
+state (Bruck, 1990).
 
 ### Connection with AIC
 
@@ -78,7 +78,7 @@ $$
 $$
 
 where $\widehat{X_t \beta} = H_d X_t \beta$. Maximizing it minimizes the
-expected out-of-sample error and finds the best orthogonal projection onto
+expected out-of-sample error and finds the optimal orthogonal projection onto
 the span of $X_t \beta$, reached when $X_d = X_t$. This quantity plays the
 role of a Hopfield energy: updating one indicator at a time,
 
