@@ -47,32 +47,9 @@ const COMMON = (legend = false, grid = false, framestyle = :box, titlefontsize =
                 guidefontsize = 14, tickfontsize = 12, left_margin = 9Plots.mm,
                 bottom_margin = 6Plots.mm, right_margin = 4Plots.mm)
 
-# Legend strip under a panel: method colours (lines, or squares for the lasso
-# fits), then the sample-size line types. Labels are padded so they do not run
-# into their keys.
-function legend_strip(lines, squares)
-    key = plot(; framestyle = :none, legend = :top,
-               legend_columns = cld(length(lines) + length(squares) + 2, 2),
-               foreground_color_legend = nothing, background_color_legend = nothing,
-               legendfontsize = 13, xlims = (0, 1), ylims = (0, 1))
-    for (m, color) in lines
-        plot!(key, [NaN], [NaN]; color = color, lw = 3.5, label = "  " * m * "   ")
-    end
-    for (m, color) in squares
-        scatter!(key, [NaN], [NaN]; color = color, marker = :rect, markersize = 8,
-                 markerstrokewidth = 0, label = "  " * m * "   ")
-    end
-    for (s, style) in SIZE_STYLE
-        plot!(key, [NaN], [NaN]; color = "#404040", ls = style, lw = 3,
-              label = "  n = " * s[2:end] * "   ")
-    end
-    key
-end
-
-function save_figure(panel, key, file)
-    fig = plot(panel, key; layout = @layout([a; b{0.16h}]), size = (1000, 575), dpi = 200)
-    savefig(fig, file)
-end
+# Save a full-width panel. There is no legend: the run-time figure labels each
+# method's colour, and the README says which line type is which n.
+save_figure(panel, file) = savefig(plot(panel; size = (1000, 675), dpi = 200), file)
 
 function plot_criteria(fits, p, true_size, stem)
     gr()
@@ -89,7 +66,7 @@ function plot_criteria(fits, p, true_size, stem)
         plot!(crit, steps, fit_of(fits, s, m).values; seriestype = :steppost,
               color = color, ls = style, lw = 2.6)
     end
-    save_figure(crit, legend_strip(PALETTE, []), stem * "-criterion.png")
+    save_figure(crit, stem * "-criterion.png")
 
     # Model size along the search; log scale when the search starts from all
     # predictors, with a tick at the true size. The lasso and adaptive lasso
@@ -119,7 +96,7 @@ function plot_criteria(fits, p, true_size, stem)
                  markersize = 9, markerstrokewidth = 0,
                  color = i == 1 ? tint(color) : color)
     end
-    save_figure(msize, legend_strip(PALETTE, LASSO), stem * "-size.png")
+    save_figure(msize, stem * "-size.png")
 
     # Run time of every method: light bars n = 1000, dark bars n = 2000
     secs = [max(fit_of(fits, s, m).seconds, 0.005) for (m, _) in METHODS, (s, _) in SIZE_STYLE]
@@ -132,7 +109,7 @@ function plot_criteria(fits, p, true_size, stem)
               ylims = (ylo, yhi), yticks = (ticks, ticklabels),
               xlims = (0.4, length(METHODS) + 0.6),
               xticks = (1:length(METHODS), first.(METHODS)), COMMON...,
-              size = (1000, 500), dpi = 200)
+              size = (1000, 625), dpi = 200)
     for (i, (m, color)) in enumerate(METHODS), j in 1:2
         x0 = i - 0.36 + (j - 1) * 0.36
         plot!(rt, Shape([x0, x0 + 0.34, x0 + 0.34, x0], [ylo, ylo, secs[i, j], secs[i, j]]);

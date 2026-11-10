@@ -337,18 +337,18 @@ Y = LP_to_Y(X, beta, "Normal"; std = sqrt(sum(abs2, beta) / 0.71))
 fits = compare_criteria(X, Y, 1:p, p; Nsim = 5)
 selection_table(fits, true_cols)
 #>                  size false_pos false_neg seconds
-#> n1000 AIC         119       114         0    0.38
-#> n1000 BIC          10         5         0    0.18
-#> n1000 GIC6          5         0         0     0.2
-#> n1000 Boltzmann     5         0         0     0.2
-#> n1000 Lasso        11         6         0     2.2
-#> n1000 AdaLasso     44        39         0    5.05
-#> n2000 AIC          97        92         0    0.59
-#> n2000 BIC          10         5         0    0.42
-#> n2000 GIC6          5         0         0     0.3
-#> n2000 Boltzmann    17        12         0    0.53
-#> n2000 Lasso        23        18         0    2.94
-#> n2000 AdaLasso     39        34         0    8.25
+#> n1000 AIC         119       114         0    0.33
+#> n1000 BIC          10         5         0    0.19
+#> n1000 GIC6          5         0         0    0.16
+#> n1000 Boltzmann     5         0         0    0.27
+#> n1000 Lasso        11         6         0    2.11
+#> n1000 AdaLasso     44        39         0    4.85
+#> n2000 AIC          97        92         0    0.35
+#> n2000 BIC          10         5         0    0.44
+#> n2000 GIC6          5         0         0    0.22
+#> n2000 Boltzmann    17        12         0    0.39
+#> n2000 Lasso        23        18         0    2.84
+#> n2000 AdaLasso     39        34         0    7.91
 ```
 
 ![Criterion along the search, linear model with p = 500](docs/figures/README-linear-criterion.png)
@@ -378,18 +378,18 @@ true_union = sort(unique(reduce(vcat, true_by_response)))
 fits = compare_criteria(X, Y_multi, 1:p, p; Nsim = 5, lasso_family = MvNormal())
 selection_table(fits, true_union)
 #>                  size false_pos false_neg seconds
-#> n1000 AIC          93        69         1    0.37
-#> n1000 BIC          20         0         5    0.18
-#> n1000 GIC6         20         0         5    0.19
-#> n1000 Boltzmann   152       130         3    0.45
+#> n1000 AIC          93        69         1    0.25
+#> n1000 BIC          20         0         5    0.17
+#> n1000 GIC6         20         0         5    0.59
+#> n1000 Boltzmann   152       130         3    0.31
 #> n1000 Lasso       132       107         0    5.72
-#> n1000 AdaLasso     24         2         3   12.73
-#> n2000 AIC          76        51         0    0.53
-#> n2000 BIC          22         0         3    0.31
-#> n2000 GIC6         20         0         5    0.25
-#> n2000 Boltzmann   193       173         5    0.79
+#> n1000 AdaLasso     24         2         3   12.78
+#> n2000 AIC          76        51         0    0.52
+#> n2000 BIC          22         0         3    0.26
+#> n2000 GIC6         20         0         5    0.35
+#> n2000 Boltzmann   193       173         5    0.54
 #> n2000 Lasso       131       106         0   10.28
-#> n2000 AdaLasso     54        30         1   24.49
+#> n2000 AdaLasso     54        30         1   24.55
 ```
 
 ![Criterion along the search, multivariate normal response](docs/figures/README-multivariate-criterion.png)
@@ -427,17 +427,17 @@ fits = compare_glm(y_pois, y_pois, Poisson(), "Poisson")
 selection_table(fits, true_cols)
 #>                  size false_pos false_neg seconds
 #> n1000 AIC          49        45         1    0.01
-#> n1000 BIC           7         2         0     0.0
+#> n1000 BIC           7         2         0    0.01
 #> n1000 GIC6          5         0         0     0.0
-#> n1000 Boltzmann    49        48         4    0.01
-#> n1000 Lasso        24        19         0    5.78
-#> n1000 AdaLasso      5         0         0    7.12
-#> n2000 AIC          49        44         0    0.11
+#> n1000 Boltzmann    49        48         4    0.02
+#> n1000 Lasso        24        19         0    5.73
+#> n1000 AdaLasso      5         0         0    7.14
+#> n2000 AIC          49        44         0    0.02
 #> n2000 BIC           6         1         0    0.01
 #> n2000 GIC6          5         0         0    0.01
-#> n2000 Boltzmann    49        48         4    0.02
-#> n2000 Lasso        28        23         0    4.79
-#> n2000 AdaLasso      5         0         0   13.66
+#> n2000 Boltzmann    49        48         4    0.18
+#> n2000 Lasso        28        23         0    4.74
+#> n2000 AdaLasso      5         0         0   13.63
 
 # Coefficients of the GIC6 model for n = 2000, intercept first
 round.(Beta_estimate(y_pois, X[:, last_model(fits.n2000.GIC6)]; family = "Poisson"), digits = 2)
@@ -466,15 +466,15 @@ selection_table(fits, true_cols)
 #> n1000 AIC          49        44         0    0.01
 #> n1000 BIC          10         5         0    0.01
 #> n1000 GIC6          5         0         0     0.0
-#> n1000 Boltzmann     5         0         0    0.02
-#> n1000 Lasso        31        26         0    3.45
-#> n1000 AdaLasso     69        64         0    7.28
+#> n1000 Boltzmann     5         0         0     0.0
+#> n1000 Lasso        31        26         0    3.38
+#> n1000 AdaLasso     69        64         0    7.24
 #> n2000 AIC          49        45         1    0.02
 #> n2000 BIC          10         5         0    0.01
 #> n2000 GIC6          5         0         0    0.01
 #> n2000 Boltzmann     5         0         0    0.01
-#> n2000 Lasso        27        22         0    4.31
-#> n2000 AdaLasso     34        29         0    13.5
+#> n2000 Lasso        27        22         0    4.27
+#> n2000 AdaLasso     34        29         0   13.58
 ```
 
 ![Criterion along the search, binomial response](docs/figures/README-binomial-criterion.png)
@@ -500,14 +500,14 @@ selection_table(fits, true_cols)
 #> n1000 BIC           6         1         0     0.0
 #> n1000 GIC6          5         0         0     0.0
 #> n1000 Boltzmann    18        13         0    0.02
-#> n1000 Lasso        58        53         0   15.72
-#> n1000 AdaLasso     15        10         0   13.18
-#> n2000 AIC          49        45         1    0.14
-#> n2000 BIC           8         3         0    0.09
+#> n1000 Lasso        58        53         0   15.16
+#> n1000 AdaLasso     15        10         0   12.73
+#> n2000 AIC          49        45         1    0.02
+#> n2000 BIC           8         3         0    0.01
 #> n2000 GIC6          5         0         0    0.01
-#> n2000 Boltzmann    42        37         0    0.05
-#> n2000 Lasso        79        74         0   29.62
-#> n2000 AdaLasso     15        10         0   25.73
+#> n2000 Boltzmann    42        37         0    0.04
+#> n2000 Lasso        79        74         0    29.0
+#> n2000 AdaLasso     15        10         0   25.41
 ```
 
 ![Criterion along the search, multinomial response](docs/figures/README-multinomial-criterion.png)
