@@ -80,7 +80,8 @@ $$
 where $\widehat{X_t \beta} = H_d X_t \beta$. Maximizing it minimizes the
 expected out-of-sample error and finds the optimal orthogonal projection onto
 the span of $X_t \beta$, reached when $X_d = X_t$. This quantity plays the
-role of a Hopfield energy: updating one indicator at a time,
+role of the energy term in a Hopfield network and allows the indicators to be
+updated one at a time:
 
 $$
 z_j(t+1) = \mathbf{1}\left\lbrace
@@ -88,7 +89,8 @@ z_j(t+1) = \mathbf{1}\left\lbrace
   \frac{1}{n} \beta^\top X_t^\top H_d X_t \beta \right\rbrace ,
 $$
 
-where $H_{d+1}$ includes $x_j$, it never decreases and is bounded above by
+where $H_{d+1}$ includes $x_j$. Under these updates the quantity never
+decreases, and it is bounded above by
 $\frac{1}{n} \beta^\top X_t^\top X_t \beta$. Replacing the unknown signal with
 the data gives the update rule for AIC,
 
