@@ -141,13 +141,6 @@ of selected variables and $P$ the number of candidate predictors:
 | AICc | $(d + 1) \frac{\sigma^2}{n - d - 2}$ | [Hurvich and Tsai (1989)](https://doi.org/10.1093/biomet/76.2.297) |
 | EBIC | $d \frac{\sigma^2}{n} \left(\log n + \gamma \log \binom{P}{d}\right)$, $\gamma = 0.6$ by default | [Chen and Chen (2008)](https://doi.org/10.1093/biomet/asn034) |
 
-The package also provides AttIC, an attention-weighted criterion specific to
-this package: it replaces the fit term $\frac{1}{n} y^\top H_d y$ with
-$y^\top \mathrm{softmax}(H_d y)$ and uses the SIC penalty.
-
-Each criterion is available as `Calculate_<name>` (for example
-`Calculate_GIC6`; AICc is `Calculate_AIC_c`).
-
 ## Examples
 
 The examples below compare three criteria on the same data. In increasing
