@@ -143,7 +143,7 @@ of selected variables and $P$ the number of candidate predictors:
 
 ## Examples
 
-The examples below compare three criteria on the same data. In increasing
+The examples below compare three IC on the same data. In increasing
 order of penalty per variable, they are AIC ($c_n = 2$), BIC ($\log n$) and
 GIC6 ($\log n \log P$), where $P$ is the number of candidate
 predictors. Each example also runs the Boltzmann search
