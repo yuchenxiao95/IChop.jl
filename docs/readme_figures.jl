@@ -59,7 +59,7 @@ function plot_criteria(fits, p, true_size, stem)
     passes = p:p:(nsteps - 1)
 
     # Criterion along the search
-    crit = plot(; title = "Criterion along the search", xlabel = "Search step",
+    crit = plot(; title = "Criterion along the search", xlabel = "Search step (solid: n = 1000, dotted: n = 2000)",
                 ylabel = "Criterion value", COMMON...)
     isempty(passes) || vline!(crit, collect(passes); color = "#d9d9d9", lw = 0.8)
     for (s, style) in SIZE_STYLE, (m, color) in PALETTE
@@ -77,7 +77,7 @@ function plot_criteria(fits, p, true_size, stem)
     log_y = maximum(maximum, path_sizes) > 100
     log_ticks = sort(unique([5, 10, 100, 500, true_size]))
     size_ylabel = log_y ? "Number of predictors (log scale)" : "Number of predictors"
-    msize = plot(; title = "Model size (true size = $true_size)", xlabel = "Search step",
+    msize = plot(; title = "Model size (true size = $true_size)", xlabel = "Search step (solid: n = 1000, dotted: n = 2000)",
                  ylabel = size_ylabel, COMMON...)
     if log_y
         lo, hi = extrema(vcat(log_ticks, reduce(vcat, path_sizes), lasso_sizes))
