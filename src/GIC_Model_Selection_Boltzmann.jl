@@ -12,7 +12,7 @@ _logistic(x::Real) = x >= 0 ? 1 / (1 + exp(-x)) : (ex = exp(x); ex / (1 + ex))
 
 """
     GIC_Variable_Selection_Boltzmann(X, Y, Init_Columns, Calculate_GIC, Calculate_GIC_short;
-                                     T = 0.2, Nsim = 2, k = typemax(Int), gamma = 0.6)
+                                     T = 0.1, Nsim = 2, k = typemax(Int), gamma = 0.6)
 
 Like `GIC_Variable_Selection`, but a proposed add/remove move is accepted with
 probability `logistic((GIC_new - GIC_current) / T)` instead of only when the
@@ -29,7 +29,7 @@ function GIC_Variable_Selection_Boltzmann(
     Init_Columns::AbstractVector{<:Integer},
     Calculate_GIC,
     Calculate_GIC_short;
-    T::Real = 0.2,
+    T::Real = 0.1,
     Nsim::Integer = 2,
     k::Integer = typemax(Int),
     gamma::Real = 0.6
