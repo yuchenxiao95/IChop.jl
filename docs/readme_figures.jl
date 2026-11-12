@@ -51,36 +51,60 @@ const COMMON = (legend = false, grid = false, framestyle = :box, titlefontsize =
 # method's colour, and the README says which line type is which n.
 save_figure(panel, file) = savefig(plot(panel; size = (1000, 675), dpi = 200), file)
 
-function plot_criteria(fits, p, true_size, stem)
+# Signed log scale, sign(y) log10(1 + |y|), for criteria that go negative
+slog(y) = sign(y) * log10(1 + abs(y))
+
+function plot_criteria(fits, p, true_size, stem; log_criterion = false)
     gr()
     mkpath(dirname(stem))
     nsteps = length(fit_of(fits, "n1000", "AIC").values)
     steps  = 1:nsteps
     passes = p:p:(nsteps - 1)
 
-    # Criterion along the search
+    # Criterion along the search, optionally on the signed log scale, labelled
+    # in the original units (as in the R README)
+    tf = log_criterion ? slog : identity
     crit = plot(; title = "Criterion along the search", xlabel = "Search step (solid: n = 1000, dotted: n = 2000)",
-                ylabel = "Criterion value", COMMON...)
+                ylabel = log_criterion ? "Criterion value (signed log scale)" : "Criterion value",
+                COMMON...)
+    if log_criterion
+        all_values = reduce(vcat, [fit_of(fits, s, m).values for (s, _) in SIZE_STYLE for (m, _) in PALETTE])
+        lo, hi = extrema(all_values)
+        at = [-(10.0 .^ (4:-1:0)); 0.0; 10.0 .^ (0:4)]
+        at = filter(a -> lo <= a <= hi, at)
+        if length(at) < 3                     # round-number ticks, like R's pretty()
+            raw  = (hi - lo) / 5
+            unit = 10.0^floor(log10(raw))
+            r    = raw / unit
+            step = unit * (r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10)
+            at   = collect(ceil(lo / step) * step:step:hi)
+        end
+        labels = [a == 0 ? "0" : abs(a) >= 1 ? replace(string(round(Int, a)), r"(\d)(?=(\d{3})+$)" => s"\1,") :
+                  string(round(a, sigdigits = 2)) for a in at]
+        pad = 0.04 * (slog(hi) - slog(lo))
+        plot!(crit; yticks = (slog.(at), labels), ylims = (slog(lo) - pad, slog(hi) + pad))
+    end
     isempty(passes) || vline!(crit, collect(passes); color = "#d9d9d9", lw = 0.8)
     for (s, style) in SIZE_STYLE, (m, color) in PALETTE
-        plot!(crit, steps, fit_of(fits, s, m).values; seriestype = :steppost,
+        plot!(crit, steps, tf.(fit_of(fits, s, m).values); seriestype = :steppost,
               color = color, ls = style, lw = 2.6)
     end
     save_figure(crit, stem * "-criterion.png")
 
-    # Model size along the search; log scale when the search starts from all
-    # predictors, with a tick at the true size. The lasso and adaptive lasso
-    # have no search path: their final model sizes are horizontal lines
-    # (solid: n = 1000, dotted: n = 2000), as in the R README.
+    # Model size along the search. Log scale when the search starts from all
+    # predictors (linear and multivariate examples), so the end of the path
+    # stays visible, with a tick at the true size. Lasso and adaptive lasso:
+    # one model each, at the cross-validated lambda, drawn as a horizontal line
+    # at its size (solid: n = 1000, dotted: n = 2000), as in the R README.
     path_sizes  = [length.(fit_of(fits, s, m).models) for (s, _) in SIZE_STYLE for (m, _) in PALETTE]
-    lasso_sizes = [length(fit_of(fits, s, m).selected) for (s, _) in SIZE_STYLE for (m, _) in LASSO]
-    log_y = maximum(maximum, path_sizes) > 100
+    lasso_sizes = [max(length(fit_of(fits, s, m).selected), 1) for (s, _) in SIZE_STYLE for (m, _) in LASSO]
+    log_y = max(maximum(maximum, path_sizes), maximum(lasso_sizes)) > 100
     log_ticks = sort(unique([5, 10, 100, 500, true_size]))
     size_ylabel = log_y ? "Number of predictors (log scale)" : "Number of predictors"
     msize = plot(; title = "Model size (true size = $true_size)", xlabel = "Search step (solid: n = 1000, dotted: n = 2000)",
                  ylabel = size_ylabel, COMMON...)
     if log_y
-        lo, hi = extrema(vcat(log_ticks, reduce(vcat, path_sizes), lasso_sizes))
+        lo, hi = extrema(vcat(log_ticks, true_size, reduce(vcat, path_sizes), lasso_sizes))
         plot!(msize; yscale = :log10, yticks = (log_ticks, string.(log_ticks)),
               ylims = (lo / 1.15, hi * 1.15))
     end
@@ -91,7 +115,7 @@ function plot_criteria(fits, p, true_size, stem)
               color = color, ls = style, lw = 2.6)
     end
     for (s, style) in SIZE_STYLE, (m, color) in LASSO
-        hline!(msize, [length(fit_of(fits, s, m).selected)]; color = color, ls = style, lw = 2.6)
+        hline!(msize, [max(length(fit_of(fits, s, m).selected), 1)]; color = color, ls = style, lw = 2.6)
     end
     save_figure(msize, stem * "-size.png")
 
@@ -195,7 +219,8 @@ function process(path, start_heading, figure_dir)
                     truth = getfield(mod, multi ? :true_union : :true_cols)
                     stem = replace(m.match, r"-(criterion|size|runtime)\.png$" => "")
                     plot_criteria(getfield(mod, :fits), getfield(mod, :p), length(truth),
-                                  joinpath(figure_dir, stem))
+                                  joinpath(figure_dir, stem);
+                                  log_criterion = occursin(r"linear|multivariate", m.match))
                     break
                 end
                 nxt += 1
