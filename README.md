@@ -293,9 +293,8 @@ variables after each search step: solid lines for $n = 1000$ and dotted lines
 for $n = 2000$. Light grey vertical lines mark a new pass over the
 predictors, and the dashed line marks the true model size. Criteria with
 larger penalties take lower values, so compare the shapes of the curves, not
-their heights. The lasso and adaptive lasso have no search path; squares at
-the right edge of the model-size figure mark their model sizes (light: $n = 1000$,
-dark: $n = 2000$). The script
+their heights. The lasso and adaptive lasso have no search path; horizontal
+lines in the model-size figure mark their model sizes. The script
 [`docs/readme_figures.jl`](docs/readme_figures.jl) runs the code in this
 section and redraws the figures.
 -->
@@ -338,18 +337,18 @@ Y = LP_to_Y(X, beta, "Normal"; std = sqrt(sum(abs2, beta) / 0.71))
 fits = compare_criteria(X, Y, 1:p, p; Nsim = 5)
 selection_table(fits, true_cols)
 #>                  size false_pos false_neg seconds
-#> n1000 AIC         119       114         0    0.41
-#> n1000 BIC          10         5         0    0.29
-#> n1000 GIC6          5         0         0    0.26
-#> n1000 Boltzmann     5         0         0    0.31
-#> n1000 Lasso        11         6         0    2.22
-#> n1000 AdaLasso     44        39         0    4.97
-#> n2000 AIC          97        92         0    0.39
-#> n2000 BIC          10         5         0    0.44
-#> n2000 GIC6          5         0         0    0.28
-#> n2000 Boltzmann     7         2         0    0.42
-#> n2000 Lasso        23        18         0    2.98
-#> n2000 AdaLasso     39        34         0    7.99
+#> n1000 AIC         119       114         0    0.47
+#> n1000 BIC          10         5         0    0.32
+#> n1000 GIC6          5         0         0    0.18
+#> n1000 Boltzmann     5         0         0    0.17
+#> n1000 Lasso        11         6         0    2.26
+#> n1000 AdaLasso     44        39         0    5.04
+#> n2000 AIC          97        92         0    0.52
+#> n2000 BIC          10         5         0    0.54
+#> n2000 GIC6          5         0         0    0.43
+#> n2000 Boltzmann     7         2         0    0.28
+#> n2000 Lasso        23        18         0    3.02
+#> n2000 AdaLasso     39        34         0     8.3
 ```
 
 <p align="center"><img src="docs/figures/README-linear-criterion.png" alt="Criterion along the search, linear model with p = 500" width="85%"></p>
@@ -379,18 +378,18 @@ true_union = sort(unique(reduce(vcat, true_by_response)))
 fits = compare_criteria(X, Y_multi, 1:p, p; Nsim = 5, lasso_family = MvNormal())
 selection_table(fits, true_union)
 #>                  size false_pos false_neg seconds
-#> n1000 AIC          93        69         1     0.3
-#> n1000 BIC          20         0         5    0.23
-#> n1000 GIC6         20         0         5    0.21
-#> n1000 Boltzmann    84        63         4    0.38
-#> n1000 Lasso       132       107         0    5.69
-#> n1000 AdaLasso     24         2         3   12.91
-#> n2000 AIC          76        51         0    0.37
-#> n2000 BIC          22         0         3    0.44
-#> n2000 GIC6         20         0         5    0.28
-#> n2000 Boltzmann   133       112         4    0.61
-#> n2000 Lasso       131       106         0    10.5
-#> n2000 AdaLasso     54        30         1   24.76
+#> n1000 AIC          93        69         1    0.48
+#> n1000 BIC          20         0         5    0.65
+#> n1000 GIC6         20         0         5    0.19
+#> n1000 Boltzmann    84        63         4    0.22
+#> n1000 Lasso       132       107         0    5.59
+#> n1000 AdaLasso     24         2         3   12.78
+#> n2000 AIC          76        51         0    0.39
+#> n2000 BIC          22         0         3    0.24
+#> n2000 GIC6         20         0         5    0.32
+#> n2000 Boltzmann   133       112         4     0.4
+#> n2000 Lasso       131       106         0   10.47
+#> n2000 AdaLasso     54        30         1   25.16
 ```
 
 <p align="center"><img src="docs/figures/README-multivariate-criterion.png" alt="Criterion along the search, multivariate normal response" width="85%"></p>
@@ -428,17 +427,17 @@ fits = compare_glm(y_pois, y_pois, Poisson(), "Poisson")
 selection_table(fits, true_cols)
 #>                  size false_pos false_neg seconds
 #> n1000 AIC          49        45         1    0.02
-#> n1000 BIC           7         2         0     0.0
+#> n1000 BIC           7         2         0    0.01
 #> n1000 GIC6          5         0         0     0.0
-#> n1000 Boltzmann    49        46         2    0.02
-#> n1000 Lasso        24        19         0    5.81
-#> n1000 AdaLasso      5         0         0    7.15
-#> n2000 AIC          49        45         1     0.1
-#> n2000 BIC           6         1         0     0.1
-#> n2000 GIC6          5         0         0    0.01
-#> n2000 Boltzmann    49        48         4    0.04
-#> n2000 Lasso        28        23         0     4.8
-#> n2000 AdaLasso      5         0         0   13.75
+#> n1000 Boltzmann    49        46         2    0.09
+#> n1000 Lasso        24        19         0    6.04
+#> n1000 AdaLasso      5         0         0    7.28
+#> n2000 AIC          49        45         1    0.03
+#> n2000 BIC           6         1         0    0.02
+#> n2000 GIC6          5         0         0    0.02
+#> n2000 Boltzmann    49        48         4    0.07
+#> n2000 Lasso        28        23         0    5.03
+#> n2000 AdaLasso      5         0         0   14.36
 
 # Coefficients of the GIC6 model for n = 2000, intercept first
 round.(Beta_estimate(y_pois, X[:, last_model(fits.n2000.GIC6)]; family = "Poisson"), digits = 2)
@@ -464,18 +463,18 @@ y_binom = LP_to_Y(X, beta, "Binomial"; n_trials = 10)
 fits = compare_glm(y_binom, [10 .- y_binom y_binom], Binomial(), "Binomial"; n_trials = 10)
 selection_table(fits, true_cols)
 #>                  size false_pos false_neg seconds
-#> n1000 AIC          49        46         2    0.01
+#> n1000 AIC          49        46         2    0.02
 #> n1000 BIC          10         5         0     0.0
 #> n1000 GIC6          5         0         0     0.0
-#> n1000 Boltzmann     5         0         0     0.0
-#> n1000 Lasso        43        38         0    3.66
-#> n1000 AdaLasso     46        41         0    7.34
-#> n2000 AIC          49        47         3    0.03
-#> n2000 BIC           8         3         0    0.08
+#> n1000 Boltzmann     5         0         0    0.01
+#> n1000 Lasso        43        38         0     4.0
+#> n1000 AdaLasso     46        41         0     7.5
+#> n2000 AIC          49        47         3    0.02
+#> n2000 BIC           8         3         0    0.01
 #> n2000 GIC6          5         0         0    0.01
 #> n2000 Boltzmann     5         0         0    0.01
-#> n2000 Lasso        42        37         0    4.43
-#> n2000 AdaLasso     77        72         0   13.38
+#> n2000 Lasso        42        37         0    4.74
+#> n2000 AdaLasso     77        72         0   14.11
 ```
 
 <p align="center"><img src="docs/figures/README-binomial-criterion.png" alt="Criterion along the search, binomial response" width="85%"></p>
@@ -497,18 +496,18 @@ onehot = Float64[y == c for y in y_mn, c in 1:3]
 fits = compare_glm(y_mn, onehot, Multinomial(), "Multinomial"; n_categories = 3)
 selection_table(fits, true_cols)
 #>                  size false_pos false_neg seconds
-#> n1000 AIC          49        46         2    0.01
-#> n1000 BIC           6         1         0    0.01
-#> n1000 GIC6          5         0         0     0.0
+#> n1000 AIC          49        46         2     0.1
+#> n1000 BIC           6         1         0     0.1
+#> n1000 GIC6          5         0         0    0.04
 #> n1000 Boltzmann     5         0         0    0.01
-#> n1000 Lasso       101        96         0   13.76
-#> n1000 AdaLasso     64        59         0    12.7
-#> n2000 AIC          49        46         2    0.01
-#> n2000 BIC           5         0         0    0.01
-#> n2000 GIC6          5         0         0    0.01
-#> n2000 Boltzmann    14         9         0    0.02
-#> n2000 Lasso        87        82         0    29.3
-#> n2000 AdaLasso     15        10         0    25.5
+#> n1000 Lasso       101        96         0   14.48
+#> n1000 AdaLasso     64        59         0   13.36
+#> n2000 AIC          49        46         2    0.14
+#> n2000 BIC           5         0         0    0.18
+#> n2000 GIC6          5         0         0    0.23
+#> n2000 Boltzmann    14         9         0    0.01
+#> n2000 Lasso        87        82         0    31.2
+#> n2000 AdaLasso     15        10         0   28.02
 ```
 
 <p align="center"><img src="docs/figures/README-multinomial-criterion.png" alt="Criterion along the search, multinomial response" width="85%"></p>

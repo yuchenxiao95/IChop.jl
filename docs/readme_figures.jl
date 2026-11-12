@@ -17,7 +17,7 @@
 using Plots
 include(joinpath(@__DIR__, "glmnet_patch.jl"))   # GLMNet.jl fix used by the lasso examples
 
-# Search methods (lines) and the lasso fits (squares in the model-size panel)
+# Search methods (step lines) and the lasso fits (horizontal lines in the model-size panel)
 # Okabe-Ito colours, as in the R README (also distinguishable for colour-blind readers)
 const PALETTE = ["AIC" => "#0072B2", "BIC" => "#D55E00", "GIC6" => "#009E73",
                  "Boltzmann" => "#CC79A7"]
@@ -70,8 +70,8 @@ function plot_criteria(fits, p, true_size, stem)
 
     # Model size along the search; log scale when the search starts from all
     # predictors, with a tick at the true size. The lasso and adaptive lasso
-    # have no search path: their final model sizes are squares at the right
-    # edge (light: n = 1000, dark: n = 2000).
+    # have no search path: their final model sizes are horizontal lines
+    # (solid: n = 1000, dotted: n = 2000), as in the R README.
     path_sizes  = [length.(fit_of(fits, s, m).models) for (s, _) in SIZE_STYLE for (m, _) in PALETTE]
     lasso_sizes = [length(fit_of(fits, s, m).selected) for (s, _) in SIZE_STYLE for (m, _) in LASSO]
     log_y = maximum(maximum, path_sizes) > 100
@@ -90,11 +90,8 @@ function plot_criteria(fits, p, true_size, stem)
         plot!(msize, steps, length.(fit_of(fits, s, m).models); seriestype = :steppost,
               color = color, ls = style, lw = 2.6)
     end
-    for (i, (s, _)) in enumerate(SIZE_STYLE), (m, color) in LASSO
-        x = nsteps * (i == 1 ? 0.96 : 0.99)
-        scatter!(msize, [x], [length(fit_of(fits, s, m).selected)]; marker = :rect,
-                 markersize = 9, markerstrokewidth = 0,
-                 color = i == 1 ? tint(color) : color)
+    for (s, style) in SIZE_STYLE, (m, color) in LASSO
+        hline!(msize, [length(fit_of(fits, s, m).selected)]; color = color, ls = style, lw = 2.6)
     end
     save_figure(msize, stem * "-size.png")
 
